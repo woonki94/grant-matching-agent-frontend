@@ -1,3 +1,10 @@
+export interface FacultyInput {
+    id: string;
+    email: string;
+    osuUrl: string;
+    cvFile?: File;
+}
+
 export interface Grant {
     opportunity_id: string;
     title: string;
@@ -62,6 +69,6 @@ export interface Message {
 }
 
 export type StreamEvent =
-    | { type: 'step_update'; payload: { message: string } }
-    | { type: 'request_info'; payload: { type: string; message: string; orchestrator?: any } }
-    | { type: 'message'; payload: { message: string; results?: Grant[]; groupResults?: GroupMatchResult[]; orchestrator?: any; query?: string } };
+    | { type: 'step_update'; payload: { message: string; node?: string } }
+    | { type: 'request_info'; payload: { type: string; message: string; emails_missing_osu_url?: string[]; orchestrator?: any } }
+    | { type: 'message'; payload: { message: string; type?: string; results?: Grant[]; groupResults?: GroupMatchResult[]; orchestrator?: any; query?: string; detail?: string } };

@@ -1,13 +1,93 @@
-import type { StreamEvent } from '../types';
+import type { FacultyInput, StreamEvent, Grant, GroupMatchResult } from '../types';
 
-// Real Backend URL (port 5000 based on user's code, but let's stick to /api/chat proxy in vite.config.ts)
-// Verify vite.config.ts proxy setup if needed, usually it proxies /api to backend
 const API_URL = '/api/chat';
 
+export interface SingleFacultyParams {
+    mode: 'single';
+    email: string;
+    osuUrl: string;
+    cvFile?: File;
+    message: string;
+    threadId: string;
+}
+
+export interface GroupParams {
+    mode: 'group';
+    faculty: FacultyInput[];
+    message: string;
+    threadId: string;
+}
+
+export type ChatParams = SingleFacultyParams | GroupParams;
+
+function buildFormData(params: ChatParams): FormData {
+    const fd = new FormData();
+    fd.append('message', params.message);
+    fd.append('thread_id', params.threadId);
+
+    if (params.mode === 'single') {
+        fd.append('email', params.email);
+        fd.append('osu_url', params.osuUrl);
+        if (params.cvFile) {
+            fd.append('cv', params.cvFile);
+        }
+    } else {
+        // Group mode: send emails as JSON array
+        const emails = params.faculty.map(f => f.email);
+        fd.append('emails', JSON.stringify(emails));
+
+        // OSU URL pairs (all faculty)
+        for (const f of params.faculty) {
+            fd.append('osu_url_email', f.email);
+            fd.append('osu_url_value', f.osuUrl);
+        }
+
+        // CV pairs (only faculty with CV files, zipped by order)
+        for (const f of params.faculty.filter(f => f.cvFile)) {
+            fd.append('cv_email', f.email);
+            fd.append('cv_file', f.cvFile!);
+        }
+    }
+
+    return fd;
+}
+
+function parseResults(data: any): { results?: Grant[]; groupResults?: GroupMatchResult[] } {
+    const nextAction = data.next_action
+        || data.result?.next_action
+        || data.orchestrator?.result?.next_action;
+
+    const isGroupResult = nextAction && nextAction.startsWith('return_group');
+
+    if (isGroupResult) {
+        const groupMatches = data.matches
+            || data.result?.matches
+            || data.orchestrator?.result?.matches
+            || data.results;
+        return { groupResults: Array.isArray(groupMatches) ? groupMatches : undefined };
+    }
+
+    const matches = data.result?.recommendation?.recommendations
+        || data.orchestrator?.result?.recommendation?.recommendations
+        || data.recommendation?.recommendations
+        || data.matches
+        || data.result?.matches
+        || data.orchestrator?.result?.matches;
+
+    if (Array.isArray(matches)) {
+        return {
+            results: matches.map((m: any) => ({
+                ...m,
+                score: m.llm_score || m.score || 0,
+            })),
+        };
+    }
+
+    return {};
+}
+
 export function streamChat(
-    text: string,
-    files: File[],
-    threadId: string,
+    params: ChatParams,
     onEvent: (event: StreamEvent) => void
 ): () => void {
     const controller = new AbortController();
@@ -15,38 +95,23 @@ export function streamChat(
 
     (async () => {
         try {
-            console.log("Starting stream to:", API_URL);
-
-            // Prepare Request Body
-            const payload = {
-                message: text,
-                thread_id: threadId,
-                uploaded_faculty_info: files.length > 0
-                // Add other fields if needed for future iterations
-            };
+            const fd = buildFormData(params);
 
             const response = await fetch(API_URL, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(payload),
-                signal
+                body: fd,
+                signal,
             });
 
             if (!response.ok) {
-                console.error("Server returned error:", response.status);
                 onEvent({
                     type: 'message',
-                    payload: { message: `Error: Server returned status ${response.status}` }
+                    payload: { message: `Server error: ${response.status}`, type: 'error' },
                 });
                 return;
             }
 
-            if (!response.body) {
-                console.error("Response body is empty");
-                return;
-            }
+            if (!response.body) return;
 
             const reader = response.body.getReader();
             const decoder = new TextDecoder();
@@ -56,107 +121,41 @@ export function streamChat(
                 const { done, value } = await reader.read();
                 if (done) break;
 
-                const chunk = decoder.decode(value, { stream: true });
-                buffer += chunk;
-
-                // Process buffer for SSE events
+                buffer += decoder.decode(value, { stream: true });
                 const lines = buffer.split('\n');
-                // Keep the last partial line in the buffer (if it doesn't end with \n)
                 buffer = lines.pop() || '';
 
                 let currentEventType: string | null = null;
 
                 for (const line of lines) {
-                    const trimmedLine = line.trim();
-                    if (!trimmedLine) {
-                        currentEventType = null;
-                        continue;
-                    }
+                    const trimmed = line.trim();
+                    if (!trimmed) { currentEventType = null; continue; }
 
-                    if (trimmedLine.startsWith('event:')) {
-                        currentEventType = trimmedLine.substring(6).trim();
-                    } else if (trimmedLine.startsWith('data:')) {
-                        const dataStr = trimmedLine.substring(5).trim();
-                        if (!currentEventType) {
-                            // Some backends might send data without event name (default 'message')
-                            // But our python backend is explicit.
-                            console.warn("Received data without event type, skipping:", dataStr);
-                            continue;
-                        }
-
+                    if (trimmed.startsWith('event:')) {
+                        currentEventType = trimmed.substring(6).trim();
+                    } else if (trimmed.startsWith('data:') && currentEventType) {
                         try {
-                            const data = JSON.parse(dataStr);
-                            // Debugging
-                            console.log("Frontend received SSE data:", data);
-
-                            // Detect the next_action to determine result type
-                            const nextAction = data.next_action
-                                || data.result?.next_action
-                                || data.orchestrator?.result?.next_action;
-
-                            const isGroupResult = nextAction && nextAction.startsWith('return_group');
-
-                            if (isGroupResult) {
-                                // Group matching results (return_group_matching_results, return_group_specific_grant_results, etc.)
-                                const groupMatches = data.matches
-                                    || data.result?.matches
-                                    || data.orchestrator?.result?.matches
-                                    || data.results;
-                                if (groupMatches && Array.isArray(groupMatches)) {
-                                    console.log("Found group matches:", groupMatches.length);
-                                    data.groupResults = groupMatches;
-                                }
-                                // Clear results so one-to-one rendering doesn't trigger
-                                delete data.results;
-                                if (!data.message) {
-                                    data.message = "Here are the group matching results:";
-                                }
-                            } else {
-                                // One-to-one results: prefer recommendations for richer data
-                                let matches = data.result?.recommendation?.recommendations
-                                    || data.orchestrator?.result?.recommendation?.recommendations
-                                    || data.recommendation?.recommendations
-                                    || data.matches
-                                    || data.result?.matches
-                                    || data.orchestrator?.result?.matches
-                                    || data.orchestrator?.matches;
-
-                                if (matches && Array.isArray(matches)) {
-                                    console.log("Found matches/recommendations array:", matches.length, "items");
-                                    data.results = matches.map((m: any) => ({
-                                        ...m,
-                                        score: m.llm_score || m.score || 0
-                                    }));
-                                }
-                            }
-
-                            // Ensure message content exists
-                            if (!data.message && (data.results?.length > 0 || data.groupResults?.length > 0)) {
-                                data.message = "Here are the matched grants:";
-                            }
-
-                            onEvent({ type: currentEventType as any, payload: data });
-                        } catch (e) {
-                            console.error("Failed to parse SSE data:", dataStr, e);
+                            const data = JSON.parse(trimmed.substring(5).trim());
+                            const parsed = parseResults(data);
+                            onEvent({
+                                type: currentEventType as any,
+                                payload: { ...data, ...parsed },
+                            });
+                        } catch {
+                            // malformed SSE data — skip
                         }
                     }
                 }
             }
-
-        } catch (error: any) {
-            if (error.name === 'AbortError') {
-                console.log("Stream aborted");
-            } else {
-                console.error("Stream error:", error);
+        } catch (err: any) {
+            if (err.name !== 'AbortError') {
                 onEvent({
                     type: 'message',
-                    payload: { message: `Connection Error: ${error.message}. Ensure backend is running.` }
+                    payload: { message: `Connection error: ${err.message}`, type: 'error' },
                 });
             }
         }
     })();
 
-    return () => {
-        controller.abort();
-    };
+    return () => controller.abort();
 }

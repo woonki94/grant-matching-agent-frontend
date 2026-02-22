@@ -68,9 +68,14 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ messages, setMessa
         if (abortStreamRef.current) abortStreamRef.current();
 
         const abort = streamChat(
-            text,
-            allFiles,
-            threadIdRef.current,
+            {
+                mode: 'single',
+                email: '',
+                osuUrl: '',
+                cvFile: allFiles[0],
+                message: text,
+                threadId: threadIdRef.current,
+            },
             (event) => {
                 switch (event.type) {
                     case 'step_update':
