@@ -1,6 +1,6 @@
 import React, { useRef, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { ArrowLeft, Users, Plus } from 'lucide-react';
+import { ArrowLeft, Users, Plus, UserPlus } from 'lucide-react';
 import { streamChat } from '../lib/api';
 import { FacultyInputRow } from '../components/FacultyInputRow';
 import { ThinkingIndicator } from '../components/ThinkingIndicator';
@@ -302,13 +302,34 @@ export const FindGrantsForTeamPage: React.FC = () => {
                                                 <p className="text-xs text-amber-700 leading-relaxed">{j.recommendation}</p>
                                             </div>
 
-                                            {/* Expand / Collapse */}
-                                            <button
-                                                onClick={() => toggleCard(idx)}
-                                                className="text-xs font-semibold text-indigo-600 hover:text-indigo-800 transition-colors"
-                                            >
-                                                {expanded ? '▲ Show less' : '▼ Show coverage & strengths'}
-                                            </button>
+                                            {/* Actions row */}
+                                            <div className="flex items-center justify-between flex-wrap gap-2 pt-1">
+                                                {/* Expand / Collapse */}
+                                                <button
+                                                    onClick={() => toggleCard(idx)}
+                                                    className="text-xs font-semibold text-indigo-600 hover:text-indigo-800 transition-colors"
+                                                >
+                                                    {expanded ? '▲ Show less' : '▼ Show coverage & strengths'}
+                                                </button>
+
+                                                {/* Find Additional Collaborators */}
+                                                <button
+                                                    onClick={() => navigate('/find-collaborators', {
+                                                        state: {
+                                                            grantLink:  `https://simpler.grants.gov/opportunity/${gm.grant_id}`,
+                                                            grantTitle: gm.grant_title ?? '',
+                                                            prefillFaculty: faculty.map(f => ({
+                                                                email:  f.email.trim().toLowerCase(),
+                                                                osuUrl: f.osuUrl.trim(),
+                                                            })),
+                                                        },
+                                                    })}
+                                                    className="flex items-center gap-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 hover:bg-emerald-100 px-3 py-1.5 rounded-lg transition-colors"
+                                                >
+                                                    <UserPlus className="w-3.5 h-3.5" />
+                                                    Find Additional Collaborators
+                                                </button>
+                                            </div>
 
                                             {expanded && (
                                                 <div className="space-y-3 border-t border-indigo-100 pt-3">

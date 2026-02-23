@@ -1,19 +1,19 @@
 import React, { useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { ArrowLeft, UserPlus, Plus, ChevronDown, ChevronUp, ExternalLink } from 'lucide-react';
 import { streamFindCollaborators } from '../lib/api';
 import { FacultyInputRow } from '../components/FacultyInputRow';
 import { ThinkingIndicator } from '../components/ThinkingIndicator';
 import type { FacultyInput, FacultySuggestion, StreamEvent, GroupJustification } from '../types';
 
-function makeFaculty(): FacultyInput {
-    return { id: `${Date.now()}-${Math.random()}`, email: '', osuUrl: '', cvFile: undefined };
+function makeFaculty(email = '', osuUrl = ''): FacultyInput {
+    return { id: `${Date.now()}-${Math.random()}`, email, osuUrl, cvFile: undefined };
 }
 
 // ── Grant helper panel ────────────────────────────────────────────────────────
 
-const GrantHelperPanel: React.FC = () => {
-    const [open, setOpen] = useState(true);
+const GrantHelperPanel: React.FC<{ defaultOpen?: boolean }> = ({ defaultOpen = true }) => {
+    const [open, setOpen] = useState(defaultOpen);
     return (
         <div className="mt-2 rounded-lg border border-slate-200 bg-slate-50 text-xs text-slate-600">
             <button
@@ -249,12 +249,28 @@ const CollaboratorCard: React.FC<{ faculty: FacultySuggestion; rank: number }> =
 
 export const FindCollaboratorsPage: React.FC = () => {
     const navigate = useNavigate();
+    const location = useLocation();
     const abortRef = useRef<(() => void) | null>(null);
 
-    const [grantLink, setGrantLink]   = useState('');
-    const [grantTitle, setGrantTitle] = useState('');
+    // Read pre-fill data forwarded from FindGrantsForTeamPage
+    const routeState = (location.state ?? {}) as {
+        grantLink?: string;
+        grantTitle?: string;
+        prefillFaculty?: { email: string; osuUrl: string }[];
+    };
+    const prefilled = !!(routeState.grantLink || routeState.grantTitle || routeState.prefillFaculty?.length);
+
+    const seedFaculty = (): FacultyInput[] => {
+        if (routeState.prefillFaculty?.length) {
+            return routeState.prefillFaculty.map(f => makeFaculty(f.email, f.osuUrl));
+        }
+        return [makeFaculty()];
+    };
+
+    const [grantLink, setGrantLink]   = useState(routeState.grantLink  ?? '');
+    const [grantTitle, setGrantTitle] = useState(routeState.grantTitle ?? '');
     const [additionalCount, setAdditionalCount] = useState(3);
-    const [faculty, setFaculty] = useState<FacultyInput[]>([makeFaculty()]);
+    const [faculty, setFaculty] = useState<FacultyInput[]>(seedFaculty);
     const [message, setMessage] = useState('');
 
     const [isLoading, setIsLoading]           = useState(false);
@@ -363,6 +379,19 @@ export const FindCollaboratorsPage: React.FC = () => {
             </header>
 
             <div className="max-w-2xl mx-auto px-4 py-10 space-y-8">
+
+                {/* Pre-fill banner */}
+                {prefilled && (
+                    <div className="bg-emerald-50 border border-emerald-200 rounded-xl px-5 py-3 space-y-0.5">
+                        <p className="text-sm font-semibold text-emerald-800">
+                            Fields pre-filled from your grant results
+                        </p>
+                        <p className="text-xs text-emerald-600">
+                            Grant and team members have been carried over. You can edit any field below, and optionally attach CV files for your existing members.
+                        </p>
+                    </div>
+                )}
+
                 {/* Grant Input */}
                 <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-4">
                     <h2 className="text-sm font-semibold text-slate-700 uppercase tracking-wide">Grant Details</h2>
@@ -395,7 +424,7 @@ export const FindCollaboratorsPage: React.FC = () => {
                             placeholder="NSF Program on Quantum Computing 2026"
                             className="w-full px-3 py-2.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent placeholder:text-slate-400"
                         />
-                        <GrantHelperPanel />
+                        <GrantHelperPanel defaultOpen={!prefilled} />
                     </div>
                 </div>
 
