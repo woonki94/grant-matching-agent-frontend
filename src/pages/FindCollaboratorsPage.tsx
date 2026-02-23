@@ -1,10 +1,10 @@
 import React, { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, UserPlus, Plus, ChevronDown, ChevronUp } from 'lucide-react';
+import { ArrowLeft, UserPlus, Plus, ChevronDown, ChevronUp, ExternalLink } from 'lucide-react';
 import { streamFindCollaborators } from '../lib/api';
 import { FacultyInputRow } from '../components/FacultyInputRow';
 import { ThinkingIndicator } from '../components/ThinkingIndicator';
-import type { FacultyInput, FacultySuggestion, StreamEvent } from '../types';
+import type { FacultyInput, FacultySuggestion, StreamEvent, GroupJustification } from '../types';
 
 function makeFaculty(): FacultyInput {
     return { id: `${Date.now()}-${Math.random()}`, email: '', osuUrl: '', cvFile: undefined };
@@ -40,21 +40,182 @@ const GrantHelperPanel: React.FC = () => {
     );
 };
 
+// ── Group Justification Panel ─────────────────────────────────────────────────
+
+interface JustificationPanelProps {
+    justification: GroupJustification;
+    allMembers: FacultySuggestion[];
+    opportunityId: string;
+    opportunityTitle: string | null;
+}
+
+const GroupJustificationPanel: React.FC<JustificationPanelProps> = ({
+    justification,
+    allMembers,
+    opportunityId,
+    opportunityTitle,
+}) => {
+    const memberMap = new Map(allMembers.map(m => [m.faculty_id, m]));
+    const grantLink = opportunityId
+        ? `https://simpler.grants.gov/opportunity/${opportunityId}`
+        : null;
+
+    return (
+        <div className="bg-white border border-emerald-200 rounded-2xl shadow-sm overflow-hidden">
+            {/* ── Header ── */}
+            <div className="bg-emerald-50 border-b border-emerald-200 px-6 py-5">
+                <div className="flex items-start gap-2">
+                    <span className="text-emerald-600 text-lg mt-0.5">✦</span>
+                    <div className="space-y-1 min-w-0">
+                        <h2 className="text-base font-bold text-slate-900 leading-snug">
+                            {opportunityTitle ?? 'Team Analysis'}
+                        </h2>
+                        {grantLink && (
+                            <a
+                                href={grantLink}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 text-xs text-emerald-600 hover:text-emerald-800 hover:underline"
+                            >
+                                <ExternalLink className="w-3 h-3" />
+                                View Grant
+                            </a>
+                        )}
+                    </div>
+                </div>
+            </div>
+
+            <div className="px-6 py-5 space-y-6 divide-y divide-slate-100">
+
+                {/* ── What This Grant Is About ── */}
+                {justification.one_paragraph && (
+                    <section className="space-y-2">
+                        <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest">
+                            What This Grant Is About
+                        </h3>
+                        <p className="text-sm text-slate-700 leading-relaxed">
+                            {justification.one_paragraph}
+                        </p>
+                    </section>
+                )}
+
+                {/* ── Faculty Roles ── */}
+                {justification.member_roles.length > 0 && (
+                    <section className="pt-5 space-y-2">
+                        <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest">
+                            Faculty Roles
+                        </h3>
+                        <ul className="space-y-1.5">
+                            {justification.member_roles.map((r, i) => {
+                                const m = memberMap.get(r.faculty_id);
+                                return (
+                                    <li key={i} className="text-sm text-slate-700 flex flex-wrap gap-x-1.5">
+                                        <span className="font-semibold text-slate-900">
+                                            {m?.name ?? `Faculty #${r.faculty_id}`}
+                                        </span>
+                                        {m?.email && (
+                                            <span className="text-slate-400">({m.email})</span>
+                                        )}
+                                        <span className="text-slate-500">—</span>
+                                        <span className="text-emerald-700 font-semibold">{r.role}</span>
+                                    </li>
+                                );
+                            })}
+                        </ul>
+                    </section>
+                )}
+
+                {/* ── Per-member strengths ── */}
+                {justification.member_strengths.length > 0 && (
+                    <section className="pt-5 space-y-5">
+                        {justification.member_strengths.map((ms, i) => {
+                            const m = memberMap.get(ms.faculty_id);
+                            const name = m?.name ?? `Faculty #${ms.faculty_id}`;
+                            return (
+                                <div key={i} className="space-y-2">
+                                    <h3 className="text-xs font-bold text-emerald-700 uppercase tracking-widest">
+                                        What {name} Can Do for This Grant
+                                    </h3>
+                                    <ul className="space-y-1.5">
+                                        {ms.bullets.map((b, j) => (
+                                            <li key={j} className="flex gap-2 text-sm text-slate-700">
+                                                <span className="text-emerald-500 mt-0.5 flex-shrink-0">•</span>
+                                                <span>{b}</span>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </div>
+                            );
+                        })}
+                    </section>
+                )}
+
+                {/* ── Why This Might Not Work ── */}
+                {(justification.why_not_working.length > 0 || justification.coverage.missing.length > 0) && (
+                    <section className="pt-5 space-y-3">
+                        <h3 className="text-xs font-bold text-red-500 uppercase tracking-widest">
+                            Why This Might Not Work
+                        </h3>
+
+                        {justification.why_not_working.length > 0 && (
+                            <div className="space-y-1.5">
+                                <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide">
+                                    Critical Gaps
+                                </p>
+                                <ul className="space-y-1.5">
+                                    {justification.why_not_working.map((w, i) => (
+                                        <li key={i} className="flex gap-2 text-sm text-slate-700">
+                                            <span className="text-red-400 mt-0.5 flex-shrink-0">•</span>
+                                            <span>{w}</span>
+                                        </li>
+                                    ))}
+                                </ul>
+                            </div>
+                        )}
+
+                        {justification.coverage.missing.length > 0 && (
+                            <div className="space-y-1.5">
+                                <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide">
+                                    Missing Topics
+                                </p>
+                                <ul className="space-y-1">
+                                    {justification.coverage.missing.map((m, i) => (
+                                        <li key={i} className="flex gap-2 text-sm text-slate-600">
+                                            <span className="text-red-400 mt-0.5 flex-shrink-0">–</span>
+                                            <span>{m}</span>
+                                        </li>
+                                    ))}
+                                </ul>
+                            </div>
+                        )}
+                    </section>
+                )}
+
+                {/* ── Recommended Action ── */}
+                {justification.recommendation && (
+                    <section className="pt-5 space-y-2">
+                        <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest">
+                            Recommended Action
+                        </h3>
+                        <div className="bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3">
+                            <p className="text-sm text-slate-700 leading-relaxed">
+                                {justification.recommendation}
+                            </p>
+                        </div>
+                    </section>
+                )}
+            </div>
+        </div>
+    );
+};
+
 // ── Collaborator card ─────────────────────────────────────────────────────────
 
 const CollaboratorCard: React.FC<{ faculty: FacultySuggestion; rank: number }> = ({ faculty, rank }) => {
-    const [expanded, setExpanded] = useState(false);
-    const pct = Math.round((faculty.llm_score ?? faculty.domain_score) * 100);
-    const hasDetails = !!(
-        faculty.research_domains?.length ||
-        faculty.application_domains?.length ||
-        faculty.covered?.length ||
-        faculty.missing?.length
-    );
+    const pct = Math.round((faculty.llm_score ?? faculty.domain_score ?? 0) * 100);
 
     return (
         <div className="bg-white border border-emerald-100 rounded-xl p-5 shadow-sm hover:border-emerald-300 transition-colors space-y-3">
-            {/* Header */}
             <div className="flex items-start justify-between gap-3">
                 <div className="flex items-center gap-3 min-w-0">
                     <span className="flex-shrink-0 w-7 h-7 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-xs font-bold">
@@ -77,76 +238,8 @@ const CollaboratorCard: React.FC<{ faculty: FacultySuggestion; rank: number }> =
                 </span>
             </div>
 
-            {/* LLM one-line reason */}
             {faculty.reason && (
                 <p className="text-xs text-slate-600 italic leading-relaxed">{faculty.reason}</p>
-            )}
-
-            {/* Expertise tags */}
-            {faculty.expertise && faculty.expertise.length > 0 && (
-                <div className="flex flex-wrap gap-1.5">
-                    {faculty.expertise.slice(0, 4).map((e, i) => (
-                        <span key={i} className="text-[11px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full">{e}</span>
-                    ))}
-                    {faculty.expertise.length > 4 && (
-                        <span className="text-[11px] text-slate-400">+{faculty.expertise.length - 4} more</span>
-                    )}
-                </div>
-            )}
-
-            {/* Covered / Missing chips */}
-            {(faculty.covered?.length || faculty.missing?.length) && (
-                <div className="flex flex-wrap gap-1.5">
-                    {(faculty.covered || []).slice(0, 3).map((c, i) => (
-                        <span key={i} className="text-[11px] font-semibold text-green-700 bg-green-50 border border-green-200 px-2 py-0.5 rounded-full">
-                            ✓ {c}
-                        </span>
-                    ))}
-                    {(faculty.missing || []).slice(0, 2).map((m, i) => (
-                        <span key={i} className="text-[11px] font-semibold text-red-600 bg-red-50 border border-red-200 px-2 py-0.5 rounded-full">
-                            ✗ {m}
-                        </span>
-                    ))}
-                </div>
-            )}
-
-            {hasDetails && (
-                <>
-                    <button
-                        onClick={() => setExpanded(v => !v)}
-                        className="text-xs font-semibold text-emerald-600 hover:text-emerald-800"
-                    >
-                        {expanded ? '▲ Hide details' : '▼ Show research areas'}
-                    </button>
-                    {expanded && (
-                        <div className="space-y-2.5 border-t border-emerald-100 pt-3">
-                            {faculty.research_domains && faculty.research_domains.length > 0 && (
-                                <div>
-                                    <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide">Research Domains</p>
-                                    <p className="text-xs text-slate-700 mt-1">{faculty.research_domains.join(' · ')}</p>
-                                </div>
-                            )}
-                            {faculty.application_domains && faculty.application_domains.length > 0 && (
-                                <div>
-                                    <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide">Application Domains</p>
-                                    <p className="text-xs text-slate-700 mt-1">{faculty.application_domains.join(' · ')}</p>
-                                </div>
-                            )}
-                            {faculty.covered && faculty.covered.length > 3 && (
-                                <div>
-                                    <p className="text-[11px] font-semibold text-green-700 uppercase tracking-wide">All Covered Topics</p>
-                                    <p className="text-xs text-slate-700 mt-1">{faculty.covered.join(', ')}</p>
-                                </div>
-                            )}
-                            {faculty.missing && faculty.missing.length > 2 && (
-                                <div>
-                                    <p className="text-[11px] font-semibold text-red-600 uppercase tracking-wide">All Missing Topics</p>
-                                    <p className="text-xs text-slate-700 mt-1">{faculty.missing.join(', ')}</p>
-                                </div>
-                            )}
-                        </div>
-                    )}
-                </>
             )}
         </div>
     );
@@ -164,12 +257,16 @@ export const FindCollaboratorsPage: React.FC = () => {
     const [faculty, setFaculty] = useState<FacultyInput[]>([makeFaculty()]);
     const [message, setMessage] = useState('');
 
-    const [isLoading, setIsLoading]     = useState(false);
-    const [thinkingLogs, setThinkingLogs] = useState<string[]>([]);
-    const [suggestions, setSuggestions] = useState<FacultySuggestion[]>([]);
-    const [infoMessage, setInfoMessage] = useState<string | null>(null);
-    const [error, setError]             = useState<string | null>(null);
-    const [submitted, setSubmitted]     = useState(false);
+    const [isLoading, setIsLoading]           = useState(false);
+    const [thinkingLogs, setThinkingLogs]     = useState<string[]>([]);
+    const [suggestions, setSuggestions]       = useState<FacultySuggestion[]>([]);
+    const [allMembers, setAllMembers]         = useState<FacultySuggestion[]>([]);
+    const [oppId, setOppId]                   = useState<string>('');
+    const [oppTitle, setOppTitle]             = useState<string | null>(null);
+    const [groupJustification, setGroupJustification] = useState<GroupJustification | null>(null);
+    const [infoMessage, setInfoMessage]       = useState<string | null>(null);
+    const [error, setError]                   = useState<string | null>(null);
+    const [submitted, setSubmitted]           = useState(false);
 
     const updateFaculty = (i: number, upd: FacultyInput) =>
         setFaculty(prev => prev.map((f, idx) => idx === i ? upd : f));
@@ -194,8 +291,16 @@ export const FindCollaboratorsPage: React.FC = () => {
     const handleSubmit = () => {
         const err = validate();
         if (err) { setError(err); return; }
-        setError(null); setInfoMessage(null); setSuggestions([]);
-        setThinkingLogs([]); setIsLoading(true); setSubmitted(true);
+        setError(null);
+        setInfoMessage(null);
+        setSuggestions([]);
+        setAllMembers([]);
+        setOppId('');
+        setOppTitle(null);
+        setGroupJustification(null);
+        setThinkingLogs([]);
+        setIsLoading(true);
+        setSubmitted(true);
         if (abortRef.current) abortRef.current();
 
         const abort = streamFindCollaborators(
@@ -217,8 +322,18 @@ export const FindCollaboratorsPage: React.FC = () => {
                     if (event.payload.type === 'error') {
                         setError(event.payload.message);
                     } else if (event.payload.collaboratorsResult) {
-                        setSuggestions(event.payload.collaboratorsResult.suggested_collaborators);
-                        if (!event.payload.collaboratorsResult.suggested_collaborators.length) {
+                        const res = event.payload.collaboratorsResult;
+                        setSuggestions(res.suggested_collaborators);
+                        setOppId(res.opportunity_id ?? '');
+                        setOppTitle(res.opportunity_title ?? null);
+                        // Merge existing + new members for the justification panel lookups
+                        const combined = [
+                            ...(res.existing_team_details ?? []),
+                            ...res.suggested_collaborators,
+                        ];
+                        setAllMembers(combined);
+                        if (res.group_justification) setGroupJustification(res.group_justification);
+                        if (!res.suggested_collaborators.length) {
                             setInfoMessage('No collaborators found in the faculty database matching this grant.');
                         }
                     } else {
@@ -308,15 +423,15 @@ export const FindCollaboratorsPage: React.FC = () => {
                         className="flex items-center gap-2 px-4 py-2.5 text-sm font-semibold text-emerald-600 border-2 border-dashed border-emerald-200 rounded-xl hover:border-emerald-400 hover:bg-emerald-50 transition-colors w-full justify-center"
                     >
                         <Plus className="w-4 h-4" />
-                        {faculty.length === 0 ? 'Add Team Member' : 'Add Another Team Member'}
+                        Add Another Member
                     </button>
                 </div>
 
-                {/* Count + Message + Submit */}
+                {/* Additional count + message + submit */}
                 <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-4">
                     <div>
                         <label className="block text-xs font-semibold text-slate-600 mb-1">
-                            Number of additional collaborators needed <span className="text-red-500">*</span>
+                            Number of collaborators to find <span className="text-red-500">*</span>
                         </label>
                         <input
                             type="number"
@@ -357,7 +472,7 @@ export const FindCollaboratorsPage: React.FC = () => {
 
                 {/* Results */}
                 {submitted && (
-                    <div className="space-y-4">
+                    <div className="space-y-5">
                         {isLoading && <ThinkingIndicator logs={thinkingLogs} />}
 
                         {infoMessage && (
@@ -367,13 +482,22 @@ export const FindCollaboratorsPage: React.FC = () => {
                         )}
 
                         {suggestions.length > 0 && (
-                            <div className="space-y-3">
+                            <div className="space-y-5">
                                 <h3 className="text-sm font-semibold text-slate-700">
                                     {suggestions.length} Suggested Collaborator{suggestions.length > 1 ? 's' : ''}
                                 </h3>
                                 {suggestions.map((s, i) => (
                                     <CollaboratorCard key={s.faculty_id} faculty={s} rank={i + 1} />
                                 ))}
+
+                                {groupJustification && (
+                                    <GroupJustificationPanel
+                                        justification={groupJustification}
+                                        allMembers={allMembers}
+                                        opportunityId={oppId}
+                                        opportunityTitle={oppTitle}
+                                    />
+                                )}
                             </div>
                         )}
                     </div>

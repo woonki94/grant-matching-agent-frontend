@@ -85,6 +85,16 @@ export interface FacultySuggestion {
     covered?: string[];
     missing?: string[];
     is_existing_member?: boolean;
+    team_score?: number;
+}
+
+export interface GroupJustification {
+    one_paragraph: string;
+    member_roles: { faculty_id: number; role: string; why: string }[];
+    coverage: { strong: string[]; partial: string[]; missing: string[] };
+    member_strengths: { faculty_id: number; bullets: string[] }[];
+    why_not_working: string[];
+    recommendation: string;
 }
 
 export interface CollaboratorsResult {
@@ -92,7 +102,10 @@ export interface CollaboratorsResult {
     opportunity_id: string;
     opportunity_title: string | null;
     additional_count: number;
+    team_score?: number;
     suggested_collaborators: FacultySuggestion[];
+    existing_team_details?: FacultySuggestion[];
+    group_justification?: GroupJustification | null;
 }
 
 export interface FormTeamResult {
@@ -100,7 +113,9 @@ export interface FormTeamResult {
     opportunity_id: string;
     opportunity_title: string | null;
     team_size: number;
+    team_score?: number;
     suggested_team: FacultySuggestion[];
+    group_justification?: GroupJustification | null;
 }
 
 // ── Stream event union ────────────────────────────────────────────────────────
