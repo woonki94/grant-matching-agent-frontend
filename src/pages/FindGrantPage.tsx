@@ -80,7 +80,7 @@ export const FindGrantPage: React.FC = () => {
     };
 
     const handleTeamBuilder = (grantTitle: string) => {
-        navigate('/team-builder', { state: { grantTitle } });
+        navigate('/team-builder/form-team', { state: { grantTitle } });
     };
 
     return (

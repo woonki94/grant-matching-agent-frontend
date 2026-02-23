@@ -223,7 +223,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message }) => {
                                 {/* Team Builder CTA */}
                                 <div className="pt-2 border-t border-slate-100 mt-1">
                                     <button
-                                        onClick={() => navigate('/team-builder', { state: { grantTitle: result.title } })}
+                                        onClick={() => navigate('/team-builder/form-team', { state: { grantTitle: result.title } })}
                                         className="flex items-center gap-1.5 text-xs font-semibold text-indigo-600 hover:text-indigo-800 transition-colors"
                                     >
                                         <Users className="w-3.5 h-3.5" />

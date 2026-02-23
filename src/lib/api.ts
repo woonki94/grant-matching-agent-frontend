@@ -1,4 +1,4 @@
-import type { FacultyInput, StreamEvent, Grant, GroupMatchResult } from '../types';
+import type { FacultyInput, StreamEvent, Grant, GroupMatchResult, CollaboratorsResult, FormTeamResult } from '../types';
 
 const API_URL = '/api/chat';
 
@@ -86,76 +86,152 @@ function parseResults(data: any): { results?: Grant[]; groupResults?: GroupMatch
     return {};
 }
 
-export function streamChat(
-    params: ChatParams,
-    onEvent: (event: StreamEvent) => void
-): () => void {
-    const controller = new AbortController();
-    const signal = controller.signal;
+// ── Generic SSE stream helper ─────────────────────────────────────────────────
 
+function streamSSE(
+    url: string,
+    body: FormData,
+    onEvent: (type: string, payload: any) => void,
+    signal: AbortSignal,
+) {
     (async () => {
         try {
-            const fd = buildFormData(params);
-
-            const response = await fetch(API_URL, {
-                method: 'POST',
-                body: fd,
-                signal,
-            });
-
+            const response = await fetch(url, { method: 'POST', body, signal });
             if (!response.ok) {
-                onEvent({
-                    type: 'message',
-                    payload: { message: `Server error: ${response.status}`, type: 'error' },
-                });
+                onEvent('message', { message: `Server error: ${response.status}`, type: 'error' });
                 return;
             }
-
             if (!response.body) return;
 
             const reader = response.body.getReader();
             const decoder = new TextDecoder();
             let buffer = '';
+            let currentType: string | null = null;
 
             while (true) {
                 const { done, value } = await reader.read();
                 if (done) break;
-
                 buffer += decoder.decode(value, { stream: true });
                 const lines = buffer.split('\n');
                 buffer = lines.pop() || '';
 
-                let currentEventType: string | null = null;
-
                 for (const line of lines) {
-                    const trimmed = line.trim();
-                    if (!trimmed) { currentEventType = null; continue; }
-
-                    if (trimmed.startsWith('event:')) {
-                        currentEventType = trimmed.substring(6).trim();
-                    } else if (trimmed.startsWith('data:') && currentEventType) {
+                    const t = line.trim();
+                    if (!t) { currentType = null; continue; }
+                    if (t.startsWith('event:')) {
+                        currentType = t.substring(6).trim();
+                    } else if (t.startsWith('data:') && currentType) {
                         try {
-                            const data = JSON.parse(trimmed.substring(5).trim());
-                            const parsed = parseResults(data);
-                            onEvent({
-                                type: currentEventType as any,
-                                payload: { ...data, ...parsed },
-                            });
-                        } catch {
-                            // malformed SSE data — skip
-                        }
+                            const data = JSON.parse(t.substring(5).trim());
+                            onEvent(currentType, data);
+                        } catch { /* skip malformed */ }
                     }
                 }
             }
         } catch (err: any) {
             if (err.name !== 'AbortError') {
-                onEvent({
-                    type: 'message',
-                    payload: { message: `Connection error: ${err.message}`, type: 'error' },
-                });
+                onEvent('message', { message: `Connection error: ${err.message}`, type: 'error' });
             }
         }
     })();
+}
+
+// ── Collaborator-finding helpers ──────────────────────────────────────────────
+
+function buildTeamFormData(
+    faculty: FacultyInput[],
+    extra: Record<string, string | number>,
+): FormData {
+    const fd = new FormData();
+    for (const [k, v] of Object.entries(extra)) fd.append(k, String(v));
+
+    const emails = faculty.map(f => f.email);
+    if (emails.length > 0) {
+        fd.append('emails', JSON.stringify(emails));
+        for (const f of faculty) {
+            fd.append('osu_url_email', f.email);
+            fd.append('osu_url_value', f.osuUrl);
+        }
+        for (const f of faculty.filter(f => f.cvFile)) {
+            fd.append('cv_email', f.email);
+            fd.append('cv_file', f.cvFile!);
+        }
+    }
+
+    return fd;
+}
+
+export interface FindCollaboratorsParams {
+    grantLink?: string;
+    grantTitle?: string;
+    faculty: FacultyInput[];
+    additionalCount: number;
+    message?: string;
+}
+
+export function streamFindCollaborators(
+    params: FindCollaboratorsParams,
+    onEvent: (event: StreamEvent) => void,
+): () => void {
+    const controller = new AbortController();
+    const fd = buildTeamFormData(params.faculty, {
+        ...(params.grantLink  ? { grant_link:  params.grantLink  } : {}),
+        ...(params.grantTitle ? { grant_title: params.grantTitle } : {}),
+        additional_count: params.additionalCount,
+        ...(params.message ? { message: params.message } : {}),
+    });
+    streamSSE('/api/team/find-collaborators', fd, (type, data) => {
+        if (type === 'message' && data.result?.next_action === 'return_collaborators') {
+            onEvent({ type: 'message', payload: { ...data, collaboratorsResult: data.result as CollaboratorsResult } });
+        } else {
+            onEvent({ type: type as any, payload: data });
+        }
+    }, controller.signal);
+    return () => controller.abort();
+}
+
+export interface FormTeamParams {
+    grantLink?: string;
+    grantTitle?: string;
+    faculty: FacultyInput[];
+    teamSize: number;
+    message?: string;
+}
+
+export function streamFormTeam(
+    params: FormTeamParams,
+    onEvent: (event: StreamEvent) => void,
+): () => void {
+    const controller = new AbortController();
+    const fd = buildTeamFormData(params.faculty, {
+        ...(params.grantLink  ? { grant_link:  params.grantLink  } : {}),
+        ...(params.grantTitle ? { grant_title: params.grantTitle } : {}),
+        team_size: params.teamSize,
+        ...(params.message ? { message: params.message } : {}),
+    });
+    streamSSE('/api/team/form-team', fd, (type, data) => {
+        if (type === 'message' && data.result?.next_action === 'return_team') {
+            onEvent({ type: 'message', payload: { ...data, formTeamResult: data.result as FormTeamResult } });
+        } else {
+            onEvent({ type: type as any, payload: data });
+        }
+    }, controller.signal);
+    return () => controller.abort();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+export function streamChat(
+    params: ChatParams,
+    onEvent: (event: StreamEvent) => void
+): () => void {
+    const controller = new AbortController();
+    const fd = buildFormData(params);
+
+    streamSSE(API_URL, fd, (type, data) => {
+        const parsed = parseResults(data);
+        onEvent({ type: type as any, payload: { ...data, ...parsed } });
+    }, controller.signal);
 
     return () => controller.abort();
 }

@@ -10,7 +10,7 @@ function makeFaculty(): FacultyInput {
     return { id: `${Date.now()}-${Math.random()}`, email: '', osuUrl: '', cvFile: undefined };
 }
 
-export const TeamBuilderPage: React.FC = () => {
+export const FindGrantsForTeamPage: React.FC = () => {
     const navigate = useNavigate();
     const location = useLocation();
     const prefillGrant = (location.state as any)?.grantTitle as string | undefined;
@@ -118,7 +118,7 @@ export const TeamBuilderPage: React.FC = () => {
             {/* Top Bar */}
             <header className="bg-white border-b border-slate-200 px-6 py-4 flex items-center gap-4">
                 <button
-                    onClick={() => navigate('/')}
+                    onClick={() => navigate('/team-builder')}
                     className="flex items-center gap-2 text-slate-500 hover:text-slate-800 transition-colors text-sm"
                 >
                     <ArrowLeft className="w-4 h-4" />
@@ -127,7 +127,7 @@ export const TeamBuilderPage: React.FC = () => {
                 <div className="h-5 w-px bg-slate-200" />
                 <div className="flex items-center gap-2">
                     <Users className="w-4 h-4 text-indigo-600" />
-                    <h1 className="text-base font-semibold text-slate-800">Team Builder</h1>
+                    <h1 className="text-base font-semibold text-slate-800">Find Grants for Your Team</h1>
                 </div>
             </header>
 

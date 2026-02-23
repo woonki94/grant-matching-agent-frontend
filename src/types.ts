@@ -38,6 +38,7 @@ export interface GroupMatchResult {
     grant_id: string;
     grant_title: string;
     agency_name?: string;
+    team_score?: number;
     team_members: GroupMatchMember[];
     justification: {
         one_paragraph: string;
@@ -68,7 +69,43 @@ export interface Message {
     groupResults?: GroupMatchResult[];
 }
 
+// ── Collaborator / team-formation types ──────────────────────────────────────
+
+export interface FacultySuggestion {
+    faculty_id: number;
+    name: string | null;
+    email: string | null;
+    position?: string | null;
+    expertise?: string[];
+    research_domains?: string[];
+    application_domains?: string[];
+    domain_score: number;
+    llm_score?: number;
+    reason?: string;
+    covered?: string[];
+    missing?: string[];
+    is_existing_member?: boolean;
+}
+
+export interface CollaboratorsResult {
+    next_action: 'return_collaborators';
+    opportunity_id: string;
+    opportunity_title: string | null;
+    additional_count: number;
+    suggested_collaborators: FacultySuggestion[];
+}
+
+export interface FormTeamResult {
+    next_action: 'return_team';
+    opportunity_id: string;
+    opportunity_title: string | null;
+    team_size: number;
+    suggested_team: FacultySuggestion[];
+}
+
+// ── Stream event union ────────────────────────────────────────────────────────
+
 export type StreamEvent =
     | { type: 'step_update'; payload: { message: string; node?: string } }
     | { type: 'request_info'; payload: { type: string; message: string; emails_missing_osu_url?: string[]; orchestrator?: any } }
-    | { type: 'message'; payload: { message: string; type?: string; results?: Grant[]; groupResults?: GroupMatchResult[]; orchestrator?: any; query?: string; detail?: string } };
+    | { type: 'message'; payload: { message: string; type?: string; results?: Grant[]; groupResults?: GroupMatchResult[]; collaboratorsResult?: CollaboratorsResult; formTeamResult?: FormTeamResult; orchestrator?: any; query?: string; detail?: string } };
