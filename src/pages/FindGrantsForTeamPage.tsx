@@ -235,7 +235,7 @@ export const FindGrantsForTeamPage: React.FC = () => {
                                         )}
                                         <div className="flex justify-end pt-1">
                                             <button
-                                                onClick={() => navigate('/find-collaborators', {
+                                                onClick={() => navigate('/team-builder/find-collaborators', {
                                                     state: {
                                                         grantLink:  `https://simpler.grants.gov/opportunity/${result.opportunity_id}`,
                                                         grantTitle: result.title ?? '',
