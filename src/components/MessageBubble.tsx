@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { User, Bot, FileText, ChevronDown, ChevronUp } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { User, Bot, FileText, ChevronDown, ChevronUp, Users } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import type { Message, GroupMatchResult } from '../types';
@@ -135,6 +136,7 @@ interface MessageBubbleProps {
 
 export const MessageBubble: React.FC<MessageBubbleProps> = ({ message }) => {
     const isUser = message.role === 'user';
+    const navigate = useNavigate();
 
     return (
         <div className={cn("flex w-full gap-4 p-6", isUser ? "bg-white" : "bg-slate-50 flex-row-reverse")}>
@@ -217,6 +219,17 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message }) => {
                                         <p className="text-xs text-green-700 leading-relaxed">{result.suggested_pitch}</p>
                                     </div>
                                 )}
+
+                                {/* Team Builder CTA */}
+                                <div className="pt-2 border-t border-slate-100 mt-1">
+                                    <button
+                                        onClick={() => navigate('/team-builder/form-team', { state: { grantTitle: result.title } })}
+                                        className="flex items-center gap-1.5 text-xs font-semibold text-indigo-600 hover:text-indigo-800 transition-colors"
+                                    >
+                                        <Users className="w-3.5 h-3.5" />
+                                        Find a team for this grant
+                                    </button>
+                                </div>
                             </div>
                         ))}
                     </div>
