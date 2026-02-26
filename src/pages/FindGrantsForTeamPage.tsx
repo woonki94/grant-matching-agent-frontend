@@ -18,7 +18,7 @@ export const FindGrantsForTeamPage: React.FC = () => {
     const threadId = useRef(`thread-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`);
     const abortRef = useRef<(() => void) | null>(null);
 
-    const [faculty, setFaculty] = useState<FacultyInput[]>([makeFaculty()]);
+    const [faculty, setFaculty] = useState<FacultyInput[]>([makeFaculty(), makeFaculty()]);
     const [message, setMessage] = useState(
         prefillGrant ? `Find a matching team for the grant: "${prefillGrant}"` : ''
     );
@@ -43,7 +43,7 @@ export const FindGrantsForTeamPage: React.FC = () => {
     const addFaculty = () => setFaculty(prev => [...prev, makeFaculty()]);
 
     const validate = (): string | null => {
-        if (faculty.length < 1) return 'Add at least one faculty member.';
+        if (faculty.length < 2) return 'A team requires at least two faculty members.';
         for (let i = 0; i < faculty.length; i++) {
             if (!faculty[i].email.trim()) return `Email is required for Faculty ${i + 1}.`;
             if (!faculty[i].osuUrl.trim()) return `OSU Profile URL is required for Faculty ${i + 1}.`;
@@ -150,7 +150,7 @@ export const FindGrantsForTeamPage: React.FC = () => {
                             index={idx}
                             onChange={updated => updateFaculty(idx, updated)}
                             onRemove={() => removeFaculty(idx)}
-                            canRemove={faculty.length > 1}
+                            canRemove={faculty.length > 2}
                         />
                     ))}
 
@@ -237,10 +237,10 @@ export const FindGrantsForTeamPage: React.FC = () => {
                                             <button
                                                 onClick={() => navigate('/team-builder/find-collaborators', {
                                                     state: {
-                                                        grantLink:  `https://simpler.grants.gov/opportunity/${result.opportunity_id}`,
+                                                        grantLink: `https://simpler.grants.gov/opportunity/${result.opportunity_id}`,
                                                         grantTitle: result.title ?? '',
                                                         prefillFaculty: faculty.map(f => ({
-                                                            email:  f.email.trim().toLowerCase(),
+                                                            email: f.email.trim().toLowerCase(),
                                                             osuUrl: f.osuUrl.trim(),
                                                         })),
                                                     },

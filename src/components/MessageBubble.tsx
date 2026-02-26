@@ -202,14 +202,33 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message }) => {
                                     </span>
                                 </div>
 
-                                {result.why_good_match && result.why_good_match.length > 0 && (
-                                    <div className="mt-2 space-y-1">
-                                        <div className="text-xs font-semibold text-slate-700">Why this is a good match:</div>
-                                        <ul className="text-xs text-slate-600 space-y-1 list-disc list-inside">
-                                            {result.why_good_match.map((reason, idx) => (
-                                                <li key={idx} className="leading-relaxed">{reason}</li>
-                                            ))}
-                                        </ul>
+                                {result.why_match && (
+                                    <div className="mt-2 space-y-3">
+                                        <div className="text-xs text-slate-700 leading-relaxed font-medium">
+                                            {result.why_match.summary}
+                                        </div>
+
+                                        {result.why_match.alignment_points && result.why_match.alignment_points.length > 0 && (
+                                            <div>
+                                                <div className="text-xs font-semibold text-green-700 mb-1">✅ Alignment Points:</div>
+                                                <ul className="text-xs text-slate-600 space-y-1 list-disc list-inside">
+                                                    {result.why_match.alignment_points.map((point, idx) => (
+                                                        <li key={idx} className="leading-relaxed">{point}</li>
+                                                    ))}
+                                                </ul>
+                                            </div>
+                                        )}
+
+                                        {result.why_match.risk_gaps && result.why_match.risk_gaps.length > 0 && (
+                                            <div>
+                                                <div className="text-xs font-semibold text-yellow-700 mb-1">⚠️ Risk Gaps:</div>
+                                                <ul className="text-xs text-slate-600 space-y-1 list-disc list-inside">
+                                                    {result.why_match.risk_gaps.map((risk, idx) => (
+                                                        <li key={idx} className="leading-relaxed">{risk}</li>
+                                                    ))}
+                                                </ul>
+                                            </div>
+                                        )}
                                     </div>
                                 )}
 

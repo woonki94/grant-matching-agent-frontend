@@ -53,6 +53,8 @@ function buildFormData(params: ChatParams): FormData {
 }
 
 function parseResults(data: any): { results?: Grant[]; groupResults?: GroupMatchResult[] } {
+    console.log("Raw incoming data from backend:", data);
+
     const nextAction = data.next_action
         || data.result?.next_action
         || data.orchestrator?.result?.next_action;
@@ -64,15 +66,19 @@ function parseResults(data: any): { results?: Grant[]; groupResults?: GroupMatch
             || data.result?.matches
             || data.orchestrator?.result?.matches
             || data.results;
+        console.log("Parsed group matches:", groupMatches);
         return { groupResults: Array.isArray(groupMatches) ? groupMatches : undefined };
     }
 
-    const matches = data.result?.recommendation?.recommendations
+    const matches = data.results
         || data.orchestrator?.result?.recommendation?.recommendations
+        || data.result?.recommendation?.recommendations
         || data.recommendation?.recommendations
-        || data.matches
+        || data.orchestrator?.result?.matches
         || data.result?.matches
-        || data.orchestrator?.result?.matches;
+        || data.matches;
+
+    console.log("Parsed single matches:", matches);
 
     if (Array.isArray(matches)) {
         return {
@@ -175,7 +181,7 @@ export function streamFindCollaborators(
 ): () => void {
     const controller = new AbortController();
     const fd = buildTeamFormData(params.faculty, {
-        ...(params.grantLink  ? { grant_link:  params.grantLink  } : {}),
+        ...(params.grantLink ? { grant_link: params.grantLink } : {}),
         ...(params.grantTitle ? { grant_title: params.grantTitle } : {}),
         additional_count: params.additionalCount,
         ...(params.message ? { message: params.message } : {}),
@@ -204,7 +210,7 @@ export function streamFormTeam(
 ): () => void {
     const controller = new AbortController();
     const fd = buildTeamFormData(params.faculty, {
-        ...(params.grantLink  ? { grant_link:  params.grantLink  } : {}),
+        ...(params.grantLink ? { grant_link: params.grantLink } : {}),
         ...(params.grantTitle ? { grant_title: params.grantTitle } : {}),
         team_size: params.teamSize,
         ...(params.message ? { message: params.message } : {}),
