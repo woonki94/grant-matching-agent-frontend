@@ -13,7 +13,12 @@ export interface Grant {
     llm_score?: number;
     domain_score?: number;
     matched_terms?: string[];
-    why_good_match?: string[];
+    fit_label?: 'mismatch' | 'bad' | 'good' | 'great' | 'fantastic';
+    why_match?: {
+        summary: string;
+        alignment_points: string[];
+        risk_gaps: string[];
+    };
     suggested_pitch?: string;
 }
 
