@@ -248,6 +248,9 @@ export const FindGrantPage: React.FC = () => {
                                                     {result.agency || 'N/A'}
                                                 </span>
                                             </div>
+                                            {result.grant_explanation && (
+                                                <p className="text-xs text-slate-600 leading-relaxed mt-1.5">{result.grant_explanation}</p>
+                                            )}
                                             <span className="text-xs font-semibold text-green-700 bg-green-100 px-2.5 py-1 rounded-full flex-shrink-0">
                                                 {result.llm_score !== undefined
                                                     ? `${(result.llm_score * 100).toFixed(0)}% match`

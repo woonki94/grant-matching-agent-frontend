@@ -5,10 +5,12 @@ export interface FacultyInput {
     cvFile?: File;
 }
 
+
 export interface Grant {
     opportunity_id: string;
     title: string;
     agency: string;
+    grant_explanation?: string;
     score: number;
     llm_score?: number;
     domain_score?: number;
