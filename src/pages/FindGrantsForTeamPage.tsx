@@ -230,11 +230,6 @@ export const FindGrantsForTeamPage: React.FC = () => {
                                                 {result.llm_score !== undefined ? `${(result.llm_score * 100).toFixed(0)}% match` : `${(result.score * 100).toFixed(0)}% match`}
                                             </span>
                                         </div>
-                                        {result.why_good_match && result.why_good_match.length > 0 && (
-                                            <ul className="text-xs text-slate-600 space-y-1 list-disc list-inside">
-                                                {result.why_good_match.map((r, i) => <li key={i} className="leading-relaxed">{r}</li>)}
-                                            </ul>
-                                        )}
                                         <div className="flex justify-end pt-1">
                                             <button
                                                 onClick={() => navigate('/team-builder/find-collaborators', {
