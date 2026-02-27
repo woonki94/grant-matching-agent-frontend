@@ -225,6 +225,34 @@ export function streamFormTeam(
     return () => controller.abort();
 }
 
+// ── Send justification email ─────────────────────────────────────────────────
+
+export interface SendEmailParams {
+    recipient_emails: string[];
+    title: string;
+    content: string;
+}
+
+export async function sendJustificationEmail(
+    params: SendEmailParams,
+): Promise<{ success: boolean; message: string }> {
+    try {
+        const response = await fetch('/api/notifications/email-justification', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(params),
+        });
+        if (!response.ok) {
+            const err = await response.text();
+            return { success: false, message: `Server error ${response.status}: ${err}` };
+        }
+        const data = await response.json();
+        return { success: true, message: data.message || 'Email sent successfully.' };
+    } catch (err: any) {
+        return { success: false, message: `Network error: ${err.message}` };
+    }
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 
 export function streamChat(
