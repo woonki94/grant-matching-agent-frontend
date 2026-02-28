@@ -4,6 +4,8 @@ import { ArrowLeft, Users, Plus, UserPlus } from 'lucide-react';
 import { streamChat } from '../lib/api';
 import { FacultyInputRow } from '../components/FacultyInputRow';
 import { ThinkingIndicator } from '../components/ThinkingIndicator';
+import { SendEmailButton } from '../components/SendEmailButton';
+import { formatGroupContent } from '../lib/formatEmail';
 import type { FacultyInput, Grant, GroupMatchResult, StreamEvent } from '../types';
 
 function makeFaculty(): FacultyInput {
@@ -228,11 +230,6 @@ export const FindGrantsForTeamPage: React.FC = () => {
                                                 {result.llm_score !== undefined ? `${(result.llm_score * 100).toFixed(0)}% match` : `${(result.score * 100).toFixed(0)}% match`}
                                             </span>
                                         </div>
-                                        {result.why_good_match && result.why_good_match.length > 0 && (
-                                            <ul className="text-xs text-slate-600 space-y-1 list-disc list-inside">
-                                                {result.why_good_match.map((r, i) => <li key={i} className="leading-relaxed">{r}</li>)}
-                                            </ul>
-                                        )}
                                         <div className="flex justify-end pt-1">
                                             <button
                                                 onClick={() => navigate('/team-builder/find-collaborators', {
@@ -320,13 +317,22 @@ export const FindGrantsForTeamPage: React.FC = () => {
                                                 <p className="text-xs text-amber-700 leading-relaxed">{j.recommendation}</p>
                                             </div>
 
-                                            {/* Expand / Collapse */}
-                                            <button
-                                                onClick={() => toggleCard(idx)}
-                                                className="text-xs font-semibold text-indigo-600 hover:text-indigo-800 transition-colors"
-                                            >
-                                                {expanded ? '▲ Show less' : '▼ Show coverage & strengths'}
-                                            </button>
+                                            {/* Actions: expand + send email */}
+                                            <div className="flex items-center gap-4">
+                                                <button
+                                                    onClick={() => toggleCard(idx)}
+                                                    className="text-xs font-semibold text-indigo-600 hover:text-indigo-800 transition-colors"
+                                                >
+                                                    {expanded ? '▲ Show less' : '▼ Show coverage & strengths'}
+                                                </button>
+                                                <SendEmailButton
+                                                    emails={gm.team_members.map(m => m.faculty_email)}
+                                                    labels={gm.team_members.map(m => m.faculty_name)}
+                                                    title={gm.grant_title}
+                                                    content={formatGroupContent(gm)}
+                                                    mode="group"
+                                                />
+                                            </div>
 
                                             {expanded && (
                                                 <div className="space-y-3 border-t border-indigo-100 pt-3">

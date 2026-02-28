@@ -4,6 +4,8 @@ import { User, Bot, FileText, ChevronDown, ChevronUp, Users } from 'lucide-react
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import type { Message, GroupMatchResult } from '../types';
+import { SendEmailButton } from './SendEmailButton';
+import { formatGrantContent, formatGroupContent } from '../lib/formatEmail';
 
 // Utility for merging tailwind classes
 function cn(...inputs: ClassValue[]) {
@@ -62,13 +64,22 @@ const GroupMatchCard: React.FC<{ match: GroupMatchResult }> = ({ match }) => {
             </div>
 
             {/* Expand/collapse for details */}
-            <button
-                onClick={() => setExpanded(!expanded)}
-                className="flex items-center gap-1 text-xs text-indigo-600 hover:text-indigo-800 font-medium self-start transition-colors"
-            >
-                {expanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-                {expanded ? 'Show less' : 'Show coverage & strengths'}
-            </button>
+            <div className="flex items-center gap-4">
+                <button
+                    onClick={() => setExpanded(!expanded)}
+                    className="flex items-center gap-1 text-xs text-indigo-600 hover:text-indigo-800 font-medium self-start transition-colors"
+                >
+                    {expanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                    {expanded ? 'Show less' : 'Show coverage & strengths'}
+                </button>
+                <SendEmailButton
+                    emails={match.team_members.map(m => m.faculty_email)}
+                    labels={match.team_members.map(m => m.faculty_name)}
+                    title={match.grant_title}
+                    content={formatGroupContent(match)}
+                    mode="group"
+                />
+            </div>
 
             {expanded && (
                 <div className="space-y-3 border-t border-indigo-200 pt-3">
@@ -127,6 +138,44 @@ const GroupMatchCard: React.FC<{ match: GroupMatchResult }> = ({ match }) => {
                 </div>
             )}
         </div>
+    );
+};
+
+// Inline email prompt for individual grant cards in the chat (no user email available)
+const SingleGrantEmailButton: React.FC<{ result: import('../types').Grant }> = ({ result }) => {
+    const [emailVal, setEmailVal] = useState('');
+    const [showInput, setShowInput] = useState(false);
+
+    if (showInput) {
+        return (
+            <div className="mt-1 flex items-center gap-2">
+                <input
+                    type="email"
+                    value={emailVal}
+                    onChange={(e) => setEmailVal(e.target.value)}
+                    placeholder="Your email"
+                    className="px-2 py-1 text-xs border border-slate-300 rounded-md focus:outline-none focus:ring-1 focus:ring-emerald-500 w-48"
+                />
+                {emailVal.trim() && (
+                    <SendEmailButton
+                        emails={[emailVal.trim()]}
+                        title={result.title}
+                        content={formatGrantContent(result)}
+                        mode="single"
+                    />
+                )}
+            </div>
+        );
+    }
+
+    return (
+        <button
+            onClick={() => setShowInput(true)}
+            className="flex items-center gap-1.5 text-xs font-semibold text-emerald-700 hover:text-emerald-900 transition-colors"
+        >
+            <Users className="w-3.5 h-3.5" />
+            Send Email
+        </button>
     );
 };
 
@@ -239,8 +288,8 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message }) => {
                                     </div>
                                 )}
 
-                                {/* Team Builder CTA */}
-                                <div className="pt-2 border-t border-slate-100 mt-1">
+                                {/* Action buttons */}
+                                <div className="pt-2 border-t border-slate-100 mt-1 flex items-center gap-4">
                                     <button
                                         onClick={() => navigate('/team-builder/form-team', { state: { grantTitle: result.title } })}
                                         className="flex items-center gap-1.5 text-xs font-semibold text-indigo-600 hover:text-indigo-800 transition-colors"
@@ -248,6 +297,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message }) => {
                                         <Users className="w-3.5 h-3.5" />
                                         Find a team for this grant
                                     </button>
+                                    <SingleGrantEmailButton result={result} />
                                 </div>
                             </div>
                         ))}

@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Search, Paperclip, FileText, X, Users } from 'lucide-react';
 import { streamChat } from '../lib/api';
 import { ThinkingIndicator } from '../components/ThinkingIndicator';
+import { SendEmailButton } from '../components/SendEmailButton';
+import { formatGrantContent } from '../lib/formatEmail';
 import type { Grant, StreamEvent } from '../types';
 
 export const FindGrantPage: React.FC = () => {
@@ -254,6 +256,10 @@ export const FindGrantPage: React.FC = () => {
                                             </span>
                                         </div>
 
+                                        {result.grant_explanation && (
+                                            <p className="text-xs text-slate-600 leading-relaxed">{result.grant_explanation}</p>
+                                        )}
+
                                         {result.why_match && (
                                             <div className="space-y-3">
                                                 <p className="text-xs text-slate-700 leading-relaxed font-medium">
@@ -291,8 +297,8 @@ export const FindGrantPage: React.FC = () => {
                                             </div>
                                         )}
 
-                                        {/* Team Builder CTA */}
-                                        <div className="pt-1 border-t border-slate-100">
+                                        {/* Action buttons */}
+                                        <div className="pt-2 border-t border-slate-100 flex items-center gap-4">
                                             <button
                                                 onClick={() => handleTeamBuilder(result.title)}
                                                 className="flex items-center gap-1.5 text-xs font-semibold text-indigo-600 hover:text-indigo-800 transition-colors"
@@ -300,6 +306,12 @@ export const FindGrantPage: React.FC = () => {
                                                 <Users className="w-3.5 h-3.5" />
                                                 Find a team for this grant
                                             </button>
+                                            <SendEmailButton
+                                                emails={[email.trim().toLowerCase()]}
+                                                title={result.title}
+                                                content={formatGrantContent(result)}
+                                                mode="single"
+                                            />
                                         </div>
                                     </div>
                                 ))}
