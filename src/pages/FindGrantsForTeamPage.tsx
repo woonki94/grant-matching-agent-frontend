@@ -1,6 +1,6 @@
 import React, { useRef, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { ArrowLeft, Users, Plus, UserPlus } from 'lucide-react';
+import { ArrowLeft, Users, Plus, UserPlus, ExternalLink } from 'lucide-react';
 import { streamChat } from '../lib/api';
 import { FacultyInputRow } from '../components/FacultyInputRow';
 import { ThinkingIndicator } from '../components/ThinkingIndicator';
@@ -32,7 +32,6 @@ export const FindGrantsForTeamPage: React.FC = () => {
     const [infoMessage, setInfoMessage] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [submitted, setSubmitted] = useState(false);
-    const [expandedCards, setExpandedCards] = useState<Set<number>>(new Set());
 
     const updateFaculty = (index: number, updated: FacultyInput) => {
         setFaculty(prev => prev.map((f, i) => i === index ? updated : f));
@@ -64,7 +63,6 @@ export const FindGrantsForTeamPage: React.FC = () => {
         setThinkingLogs([]);
         setIsLoading(true);
         setSubmitted(true);
-        setExpandedCards(new Set());
 
         if (abortRef.current) abortRef.current();
 
@@ -107,13 +105,6 @@ export const FindGrantsForTeamPage: React.FC = () => {
         abortRef.current = abort;
     };
 
-    const toggleCard = (idx: number) => {
-        setExpandedCards(prev => {
-            const next = new Set(prev);
-            next.has(idx) ? next.delete(idx) : next.add(idx);
-            return next;
-        });
-    };
 
     return (
         <div className="min-h-screen bg-slate-50">
@@ -255,134 +246,222 @@ export const FindGrantsForTeamPage: React.FC = () => {
 
                         {/* Group matching results */}
                         {groupResults.length > 0 && (
-                            <div className="space-y-4">
+                            <div className="space-y-6">
                                 <h3 className="text-sm font-semibold text-slate-600">
                                     {groupResults.length} Team Match{groupResults.length > 1 ? 'es' : ''} Found
                                 </h3>
                                 {groupResults.map((gm, idx) => {
-                                    const expanded = expandedCards.has(idx);
                                     const j = gm.justification;
+                                    const grantLink = `https://simpler.grants.gov/opportunity/${gm.grant_id}`;
                                     return (
-                                        <div key={idx} className="bg-white border border-indigo-100 rounded-xl p-5 shadow-sm hover:border-indigo-300 transition-colors space-y-3">
-                                            {/* Header */}
-                                            <div className="flex justify-between items-start gap-3">
-                                                <div className="flex-1 min-w-0">
-                                                    <h4 className="font-semibold text-indigo-900 leading-snug">
-                                                        <a
-                                                            href={`https://simpler.grants.gov/opportunity/${gm.grant_id}`}
-                                                            target="_blank"
-                                                            rel="noopener noreferrer"
-                                                            className="hover:underline"
-                                                        >
-                                                            {gm.grant_title}
-                                                        </a>
-                                                    </h4>
-                                                    <span className="text-xs font-bold text-blue-600 bg-blue-100 px-2 py-1 rounded mt-1.5 inline-block">
-                                                        {gm.agency_name || 'N/A'}
-                                                    </span>
-                                                    <div className="flex flex-wrap gap-1 mt-2">
-                                                        {gm.team_members.map(m => (
-                                                            <span key={m.faculty_id} className="text-xs font-semibold text-indigo-600 bg-indigo-100 px-2 py-0.5 rounded">
-                                                                {m.faculty_name}
+                                        <div key={idx} className="bg-white border border-emerald-200 rounded-2xl shadow-sm overflow-hidden">
+                                            {/* ── Header ── */}
+                                            <div className="bg-emerald-50 border-b border-emerald-200 px-6 py-5">
+                                                <div className="flex items-start justify-between gap-3">
+                                                    <div className="flex items-start gap-2 min-w-0">
+                                                        <span className="text-emerald-600 text-lg mt-0.5">✦</span>
+                                                        <div className="space-y-1.5 min-w-0">
+                                                            <h4 className="text-base font-bold text-slate-900 leading-snug">
+                                                                {gm.grant_title}
+                                                            </h4>
+                                                            <a
+                                                                href={grantLink}
+                                                                target="_blank"
+                                                                rel="noopener noreferrer"
+                                                                className="inline-flex items-center gap-1 text-xs text-emerald-600 hover:text-emerald-800 hover:underline"
+                                                            >
+                                                                <ExternalLink className="w-3 h-3" />
+                                                                View Grant
+                                                            </a>
+                                                            <div className="flex flex-wrap gap-1 mt-1">
+                                                                {gm.team_members.map(m => (
+                                                                    <span key={m.faculty_id} className="text-xs font-semibold text-indigo-600 bg-indigo-100 px-2 py-0.5 rounded">
+                                                                        {m.faculty_name}
+                                                                    </span>
+                                                                ))}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
+                                                        {gm.team_score !== undefined && (
+                                                            <span className="text-xs font-semibold text-indigo-700 bg-indigo-100 px-2.5 py-1 rounded-full">
+                                                                {(gm.team_score * 100).toFixed(0)}% team fit
                                                             </span>
-                                                        ))}
+                                                        )}
+                                                        {gm.agency_name && (
+                                                            <span className="text-xs font-bold text-blue-600 bg-blue-100 px-2 py-0.5 rounded">
+                                                                {gm.agency_name}
+                                                            </span>
+                                                        )}
                                                     </div>
                                                 </div>
-                                                {gm.team_score !== undefined && (
-                                                    <span className="flex-shrink-0 text-xs font-semibold text-indigo-700 bg-indigo-100 px-2.5 py-1 rounded-full">
-                                                        {(gm.team_score * 100).toFixed(0)}% team fit
-                                                    </span>
-                                                )}
                                             </div>
 
-                                            {/* One paragraph justification */}
-                                            <p className="text-xs text-slate-600 leading-relaxed">{j.one_paragraph}</p>
+                                            <div className="px-6 py-5 space-y-6 divide-y divide-slate-100">
 
-                                            {/* Team Roles */}
-                                            <div className="space-y-2">
-                                                <p className="text-xs font-semibold text-slate-700">Team Roles:</p>
-                                                {j.member_roles.map(mr => (
-                                                    <div key={mr.faculty_id} className="p-2.5 bg-slate-50 rounded-lg border border-slate-100">
-                                                        <p className="text-xs font-semibold text-indigo-800">
-                                                            {gm.team_members.find(m => m.faculty_id === mr.faculty_id)?.faculty_name} — {mr.role}
+                                                {/* ── What This Grant Is About ── */}
+                                                {j.one_paragraph && (
+                                                    <section className="space-y-2">
+                                                        <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest">
+                                                            What This Grant Is About
+                                                        </h3>
+                                                        <p className="text-sm text-slate-700 leading-relaxed">
+                                                            {j.one_paragraph}
                                                         </p>
-                                                        <p className="text-xs text-slate-600 mt-0.5">{mr.why}</p>
-                                                    </div>
-                                                ))}
-                                            </div>
+                                                    </section>
+                                                )}
 
-                                            {/* Recommendation */}
-                                            <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
-                                                <p className="text-xs font-semibold text-amber-800 mb-1">Recommendation:</p>
-                                                <p className="text-xs text-amber-700 leading-relaxed">{j.recommendation}</p>
-                                            </div>
+                                                {/* ── Faculty Roles ── */}
+                                                {j.member_roles.length > 0 && (
+                                                    <section className="pt-5 space-y-2">
+                                                        <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest">
+                                                            Faculty Roles
+                                                        </h3>
+                                                        <ul className="space-y-1.5">
+                                                            {j.member_roles.map((r, i) => {
+                                                                const m = gm.team_members.find(tm => tm.faculty_id === r.faculty_id);
+                                                                return (
+                                                                    <li key={i} className="text-sm text-slate-700 flex flex-wrap gap-x-1.5">
+                                                                        <span className="font-semibold text-slate-900">
+                                                                            {m?.faculty_name ?? `Faculty #${r.faculty_id}`}
+                                                                        </span>
+                                                                        {m?.faculty_email && (
+                                                                            <span className="text-slate-400">({m.faculty_email})</span>
+                                                                        )}
+                                                                        <span className="text-slate-500">—</span>
+                                                                        <span className="text-emerald-700 font-semibold">{r.role}</span>
+                                                                    </li>
+                                                                );
+                                                            })}
+                                                        </ul>
+                                                    </section>
+                                                )}
 
-                                            {/* Actions: expand + send email */}
-                                            <div className="flex items-center gap-4">
-                                                <button
-                                                    onClick={() => toggleCard(idx)}
-                                                    className="text-xs font-semibold text-indigo-600 hover:text-indigo-800 transition-colors"
-                                                >
-                                                    {expanded ? '▲ Show less' : '▼ Show coverage & strengths'}
-                                                </button>
-                                                <SendEmailButton
-                                                    emails={gm.team_members.map(m => m.faculty_email)}
-                                                    labels={gm.team_members.map(m => m.faculty_name)}
-                                                    title={gm.grant_title}
-                                                    content={formatGroupContent(gm)}
-                                                    mode="group"
-                                                />
-                                            </div>
+                                                {/* ── Per-member strengths ── */}
+                                                {j.member_strengths.length > 0 && (
+                                                    <section className="pt-5 space-y-5">
+                                                        {j.member_strengths.map((ms, i) => {
+                                                            const m = gm.team_members.find(tm => tm.faculty_id === ms.faculty_id);
+                                                            const name = m?.faculty_name ?? `Faculty #${ms.faculty_id}`;
+                                                            return (
+                                                                <div key={i} className="space-y-2">
+                                                                    <h3 className="text-xs font-bold text-emerald-700 uppercase tracking-widest">
+                                                                        What {name} Can Do for This Grant
+                                                                    </h3>
+                                                                    <ul className="space-y-1.5">
+                                                                        {ms.bullets.map((b, bi) => (
+                                                                            <li key={bi} className="flex gap-2 text-sm text-slate-700">
+                                                                                <span className="text-emerald-500 mt-0.5 flex-shrink-0">•</span>
+                                                                                <span>{b}</span>
+                                                                            </li>
+                                                                        ))}
+                                                                    </ul>
+                                                                </div>
+                                                            );
+                                                        })}
+                                                    </section>
+                                                )}
 
-                                            {expanded && (
-                                                <div className="space-y-3 border-t border-indigo-100 pt-3">
-                                                    {j.coverage.strong.length > 0 && (
-                                                        <div>
-                                                            <p className="text-xs font-semibold text-green-700">✅ Strong Coverage:</p>
-                                                            <ul className="text-xs text-slate-600 list-disc list-inside space-y-0.5 mt-1">
-                                                                {j.coverage.strong.map((s, i) => <li key={i}>{s}</li>)}
-                                                            </ul>
-                                                        </div>
-                                                    )}
-                                                    {j.coverage.partial.length > 0 && (
-                                                        <div>
-                                                            <p className="text-xs font-semibold text-yellow-700">⚠️ Partial Coverage:</p>
-                                                            <ul className="text-xs text-slate-600 list-disc list-inside space-y-0.5 mt-1">
-                                                                {j.coverage.partial.map((s, i) => <li key={i}>{s}</li>)}
-                                                            </ul>
-                                                        </div>
-                                                    )}
-                                                    {j.coverage.missing.length > 0 && (
-                                                        <div>
-                                                            <p className="text-xs font-semibold text-red-700">❌ Missing:</p>
-                                                            <ul className="text-xs text-slate-600 list-disc list-inside space-y-0.5 mt-1">
-                                                                {j.coverage.missing.map((s, i) => <li key={i}>{s}</li>)}
-                                                            </ul>
-                                                        </div>
-                                                    )}
-                                                    <div>
-                                                        <p className="text-xs font-semibold text-slate-700 mb-1">Member Strengths:</p>
-                                                        {j.member_strengths.map(ms => (
-                                                            <div key={ms.faculty_id} className="mb-2">
-                                                                <p className="text-xs font-semibold text-indigo-700">
-                                                                    {gm.team_members.find(m => m.faculty_id === ms.faculty_id)?.faculty_name}
+                                                {/* ── Coverage ── */}
+                                                {(j.coverage.strong.length > 0 || j.coverage.partial.length > 0) && (
+                                                    <section className="pt-5 space-y-3">
+                                                        {j.coverage.strong.length > 0 && (
+                                                            <div className="space-y-1.5">
+                                                                <p className="text-[11px] font-semibold text-green-700 uppercase tracking-wide">
+                                                                    Strong Coverage
                                                                 </p>
-                                                                <ul className="text-xs text-slate-600 list-disc list-inside space-y-0.5 mt-0.5">
-                                                                    {ms.bullets.map((b, i) => <li key={i}>{b}</li>)}
+                                                                <ul className="space-y-1">
+                                                                    {j.coverage.strong.map((s, i) => (
+                                                                        <li key={i} className="flex gap-2 text-sm text-slate-700">
+                                                                            <span className="text-green-500 mt-0.5 flex-shrink-0">•</span>
+                                                                            <span>{s}</span>
+                                                                        </li>
+                                                                    ))}
                                                                 </ul>
                                                             </div>
-                                                        ))}
-                                                    </div>
-                                                    {j.why_not_working.length > 0 && (
-                                                        <div>
-                                                            <p className="text-xs font-semibold text-red-700">⚠️ Potential Challenges:</p>
-                                                            <ul className="text-xs text-slate-600 list-disc list-inside space-y-0.5 mt-1">
-                                                                {j.why_not_working.map((w, i) => <li key={i}>{w}</li>)}
-                                                            </ul>
+                                                        )}
+                                                        {j.coverage.partial.length > 0 && (
+                                                            <div className="space-y-1.5">
+                                                                <p className="text-[11px] font-semibold text-amber-600 uppercase tracking-wide">
+                                                                    Partial Coverage
+                                                                </p>
+                                                                <ul className="space-y-1">
+                                                                    {j.coverage.partial.map((s, i) => (
+                                                                        <li key={i} className="flex gap-2 text-sm text-slate-600">
+                                                                            <span className="text-amber-400 mt-0.5 flex-shrink-0">•</span>
+                                                                            <span>{s}</span>
+                                                                        </li>
+                                                                    ))}
+                                                                </ul>
+                                                            </div>
+                                                        )}
+                                                    </section>
+                                                )}
+
+                                                {/* ── Why This Might Not Work ── */}
+                                                {(j.why_not_working.length > 0 || j.coverage.missing.length > 0) && (
+                                                    <section className="pt-5 space-y-3">
+                                                        <h3 className="text-xs font-bold text-red-500 uppercase tracking-widest">
+                                                            Why This Might Not Work
+                                                        </h3>
+                                                        {j.why_not_working.length > 0 && (
+                                                            <div className="space-y-1.5">
+                                                                <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide">
+                                                                    Critical Gaps
+                                                                </p>
+                                                                <ul className="space-y-1.5">
+                                                                    {j.why_not_working.map((w, i) => (
+                                                                        <li key={i} className="flex gap-2 text-sm text-slate-700">
+                                                                            <span className="text-red-400 mt-0.5 flex-shrink-0">•</span>
+                                                                            <span>{w}</span>
+                                                                        </li>
+                                                                    ))}
+                                                                </ul>
+                                                            </div>
+                                                        )}
+                                                        {j.coverage.missing.length > 0 && (
+                                                            <div className="space-y-1.5">
+                                                                <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide">
+                                                                    Missing Topics
+                                                                </p>
+                                                                <ul className="space-y-1">
+                                                                    {j.coverage.missing.map((m, i) => (
+                                                                        <li key={i} className="flex gap-2 text-sm text-slate-600">
+                                                                            <span className="text-red-400 mt-0.5 flex-shrink-0">–</span>
+                                                                            <span>{m}</span>
+                                                                        </li>
+                                                                    ))}
+                                                                </ul>
+                                                            </div>
+                                                        )}
+                                                    </section>
+                                                )}
+
+                                                {/* ── Recommended Action ── */}
+                                                {j.recommendation && (
+                                                    <section className="pt-5 space-y-2">
+                                                        <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest">
+                                                            Recommended Action
+                                                        </h3>
+                                                        <div className="bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3">
+                                                            <p className="text-sm text-slate-700 leading-relaxed">
+                                                                {j.recommendation}
+                                                            </p>
                                                         </div>
-                                                    )}
+                                                    </section>
+                                                )}
+
+                                                {/* ── Actions row ── */}
+                                                <div className="pt-5 flex items-center gap-4">
+                                                    <SendEmailButton
+                                                        emails={gm.team_members.map(m => m.faculty_email)}
+                                                        labels={gm.team_members.map(m => m.faculty_name)}
+                                                        title={gm.grant_title}
+                                                        content={formatGroupContent(gm)}
+                                                        mode="group"
+                                                    />
                                                 </div>
-                                            )}
+                                            </div>
                                         </div>
                                     );
                                 })}
