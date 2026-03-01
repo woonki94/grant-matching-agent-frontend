@@ -5,6 +5,7 @@ import { TeamBuilderLandingPage } from './pages/TeamBuilderLandingPage';
 import { FindGrantsForTeamPage } from './pages/FindGrantsForTeamPage';
 import { FindCollaboratorsPage } from './pages/FindCollaboratorsPage';
 import { FormTeamPage } from './pages/FormTeamPage';
+import { FacultyProfilePage } from './pages/FacultyProfilePage';
 
 function App() {
   return (
@@ -16,6 +17,7 @@ function App() {
         <Route path="/team-builder/find-grants" element={<FindGrantsForTeamPage />} />
         <Route path="/team-builder/find-collaborators" element={<FindCollaboratorsPage />} />
         <Route path="/team-builder/form-team" element={<FormTeamPage />} />
+        <Route path="/faculty-profile" element={<FacultyProfilePage />} />
       </Routes>
     </BrowserRouter>
   );

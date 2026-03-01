@@ -125,6 +125,107 @@ export interface FormTeamResult {
     group_justification?: GroupJustification | null;
 }
 
+// ── Faculty profile types ─────────────────────────────────────────────────────
+
+export interface FacultyKeywordSpecialization {
+    t: string;
+    w: number;
+}
+
+export interface FacultyKeywords {
+    domain: string[];
+    specialization: FacultyKeywordSpecialization[];
+}
+
+export interface FacultyAttachedFile {
+    id: number;
+    additional_info_id: number;
+    source_url: string;
+    detected_type: string;
+    content_char_count: number;
+}
+
+export interface FacultyPublication {
+    id: number;
+    title: string;
+    year: number;
+}
+
+export interface FacultyProfile {
+    faculty_id: number;
+    name: string;
+    email: string;
+    position: string;
+    organizations: string[];
+    all_keywords: {
+        research: FacultyKeywords;
+        application: FacultyKeywords;
+    };
+    basic_info: {
+        faculty_name: string;
+        email: string;
+        position: string;
+        organizations: string[];
+    };
+    data_from: {
+        info_source_url: string;
+        attached_files: FacultyAttachedFile[];
+        publication_titles: FacultyPublication[];
+        publication_fetched_upto_year?: number;
+    };
+}
+
+// ── Faculty PATCH types ───────────────────────────────────────────────────────
+
+/** Source-info update (basic_info + data_from). Keywords are regenerated. */
+export interface FacultySourcePatch {
+    email: string;
+    basic_info?: {
+        faculty_name?: string;
+        position?: string;
+        organizations?: string[];
+    };
+    data_from?: {
+        info_source_url?: string;
+        publications?: {
+            set_fetch_year_range?: { from: number; to: number };
+            delete?: number; // single ID
+        };
+        attached_files?: {
+            add?: { source_url: string }[];
+            update?: { id: number; source_url: string }[];
+            delete?: number[];
+        };
+    };
+}
+
+/** Direct keyword override. No source-info changes allowed. */
+export interface FacultyKeywordsPatch {
+    email: string;
+    all_keywords: {
+        research: FacultyKeywords;
+        application: FacultyKeywords;
+    };
+    keyword_source?: string;
+}
+
+export type KeywordUpdateMode =
+    | 'regenerated_from_sources'
+    | 'frontend_override'
+    | 'regeneration_failed'
+    | 'none';
+
+export interface FacultyPatchResponse {
+    ok: boolean;
+    faculty: FacultyProfile;
+    updated_keywords: {
+        research: FacultyKeywords;
+        application: FacultyKeywords;
+    };
+    keyword_update_mode: KeywordUpdateMode;
+    source_change_detail?: Record<string, number>;
+}
+
 // ── Stream event union ────────────────────────────────────────────────────────
 
 export type StreamEvent =

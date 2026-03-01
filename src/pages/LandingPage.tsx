@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Users } from 'lucide-react';
+import { Search, Users, User } from 'lucide-react';
 
 export const LandingPage: React.FC = () => {
     const navigate = useNavigate();
@@ -21,7 +21,7 @@ export const LandingPage: React.FC = () => {
             </div>
 
             {/* Action Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full max-w-2xl">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full max-w-3xl">
                 {/* Find me a Grant */}
                 <button
                     onClick={() => navigate('/find-grant')}
@@ -53,6 +53,23 @@ export const LandingPage: React.FC = () => {
                     </p>
                     <div className="mt-6 text-sm font-semibold text-indigo-600 group-hover:text-indigo-700 flex items-center gap-1">
                         Build a team →
+                    </div>
+                </button>
+
+                {/* Faculty Profile */}
+                <button
+                    onClick={() => navigate('/faculty-profile')}
+                    className="group relative flex flex-col items-start p-8 bg-white rounded-2xl border-2 border-slate-100 shadow-sm hover:border-teal-400 hover:shadow-lg transition-all duration-200 text-left"
+                >
+                    <div className="w-12 h-12 bg-teal-100 rounded-xl flex items-center justify-center mb-5 group-hover:bg-teal-200 transition-colors">
+                        <User className="w-6 h-6 text-teal-700" />
+                    </div>
+                    <h2 className="text-xl font-bold text-slate-800 mb-2">Faculty Profile</h2>
+                    <p className="text-sm text-slate-500 leading-relaxed">
+                        Look up a faculty member's research profile, publications, and expertise keywords.
+                    </p>
+                    <div className="mt-6 text-sm font-semibold text-teal-600 group-hover:text-teal-700 flex items-center gap-1">
+                        Look up →
                     </div>
                 </button>
             </div>
