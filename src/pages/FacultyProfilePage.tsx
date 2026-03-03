@@ -140,6 +140,19 @@ const KeywordSectionEditable: React.FC<{
         setNewSpecWeight(0.8);
     };
 
+    // Sort by weight descending to match read-only view,
+    // but lock the order on mount so items don't jump while editing.
+    const sortOrderRef = React.useRef<number[] | null>(null);
+    if (sortOrderRef.current === null || sortOrderRef.current.length !== keywords.specialization.length) {
+        sortOrderRef.current = keywords.specialization
+            .map((_, i) => i)
+            .sort((a, b) => keywords.specialization[b].w - keywords.specialization[a].w);
+    }
+    const sortedSpecs = sortOrderRef.current.map(origIdx => ({
+        ...keywords.specialization[origIdx],
+        origIdx,
+    })).filter(s => s.t !== undefined); // guard against stale indices after delete
+
     return (
         <div className="space-y-3">
             <h4 className="text-xs font-bold text-slate-500 uppercase tracking-widest">{title}</h4>
@@ -162,22 +175,22 @@ const KeywordSectionEditable: React.FC<{
                 </div>
             </div>
 
-            {/* Specializations (editable) */}
+            {/* Specializations (editable, sorted by weight) */}
             <div className="space-y-2">
-                {keywords.specialization.map((s, idx) => (
-                    <div key={idx} className="flex items-center gap-2">
+                {sortedSpecs.map((s) => (
+                    <div key={s.origIdx} className="flex items-center gap-2">
                         <input
                             type="text" value={s.t}
-                            onChange={e => updateSpec(idx, 't', e.target.value)}
+                            onChange={e => updateSpec(s.origIdx, 't', e.target.value)}
                             className="flex-1 text-sm border border-slate-300 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-teal-500"
                         />
                         <input
                             type="range" min={0} max={1} step={0.01} value={s.w}
-                            onChange={e => updateSpec(idx, 'w', parseFloat(e.target.value))}
+                            onChange={e => updateSpec(s.origIdx, 'w', parseFloat(e.target.value))}
                             className="w-20 accent-teal-600"
                         />
                         <span className="text-[10px] font-semibold text-slate-500 w-7 text-right">{(s.w * 100).toFixed(0)}%</span>
-                        <button onClick={() => removeSpec(idx)} className="text-slate-400 hover:text-red-500"><Trash2 className="w-3.5 h-3.5" /></button>
+                        <button onClick={() => removeSpec(s.origIdx)} className="text-slate-400 hover:text-red-500"><Trash2 className="w-3.5 h-3.5" /></button>
                     </div>
                 ))}
 
@@ -226,11 +239,7 @@ export const FacultyProfilePage: React.FC = () => {
     const [savingSource, setSavingSource] = useState(false); // true while a source PATCH is running (keywords regenerating)
 
     // ── draft state for basic info
-    const [draftName, setDraftName] = useState('');
-    const [draftPosition, setDraftPosition] = useState('');
-    const [draftOrgs, setDraftOrgs] = useState<string[]>([]);
     const [draftSourceUrl, setDraftSourceUrl] = useState('');
-    const [newOrgValue, setNewOrgValue] = useState('');
 
     // ── draft state for publications
     const [draftYearFrom, setDraftYearFrom] = useState<number | ''>('');
@@ -278,11 +287,7 @@ export const FacultyProfilePage: React.FC = () => {
 
     const startEditBasicInfo = () => {
         if (!faculty) return;
-        setDraftName(faculty.basic_info?.faculty_name || faculty.name || '');
-        setDraftPosition(faculty.basic_info?.position || faculty.position || '');
-        setDraftOrgs([...(faculty.basic_info?.organizations || faculty.organizations || [])]);
         setDraftSourceUrl(faculty.data_from?.info_source_url || '');
-        setNewOrgValue('');
         setEditingBasicInfo(true);
     };
 
@@ -294,7 +299,6 @@ export const FacultyProfilePage: React.FC = () => {
         try {
             const resp = await patchFacultySource({
                 email: faculty.email,
-                basic_info: { faculty_name: draftName, position: draftPosition, organizations: draftOrgs },
                 data_from: { info_source_url: draftSourceUrl },
             });
             applyPatchResponse(resp, resp.keyword_update_mode);
@@ -302,11 +306,6 @@ export const FacultyProfilePage: React.FC = () => {
         } catch (err: any) {
             setBanner({ msg: err.message, mode: 'error' });
         } finally { setSaving(false); setSavingSource(false); }
-    };
-
-    const addOrg = () => {
-        const v = newOrgValue.trim();
-        if (v && !draftOrgs.includes(v)) { setDraftOrgs([...draftOrgs, v]); setNewOrgValue(''); }
     };
 
     // ════════════════════════════════════════════════════════════════════════════
@@ -542,22 +541,10 @@ export const FacultyProfilePage: React.FC = () => {
                                         {(faculty.basic_info?.faculty_name || faculty.name || '?')[0].toUpperCase()}
                                     </div>
                                     <div className="min-w-0 flex-1">
-                                        {editingBasicInfo ? (
-                                            <div className="space-y-2">
-                                                <input value={draftName} onChange={e => setDraftName(e.target.value)}
-                                                    className="w-full text-lg font-bold border border-slate-300 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-teal-500" />
-                                                <input value={draftPosition} onChange={e => setDraftPosition(e.target.value)}
-                                                    placeholder="Position"
-                                                    className="w-full text-sm border border-slate-300 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-teal-500" />
-                                            </div>
-                                        ) : (
-                                            <>
-                                                <h2 className="text-lg font-bold text-slate-900 leading-snug">
-                                                    {faculty.basic_info?.faculty_name || faculty.name}
-                                                </h2>
-                                                <p className="text-sm text-slate-600">{faculty.basic_info?.position || faculty.position}</p>
-                                            </>
-                                        )}
+                                        <h2 className="text-lg font-bold text-slate-900 leading-snug">
+                                            {faculty.basic_info?.faculty_name || faculty.name}
+                                        </h2>
+                                        <p className="text-sm text-slate-600">{faculty.basic_info?.position || faculty.position}</p>
                                     </div>
                                     {!editingBasicInfo ? (
                                         <button onClick={startEditBasicInfo} className="text-teal-600 hover:text-teal-800 flex-shrink-0">
@@ -582,33 +569,14 @@ export const FacultyProfilePage: React.FC = () => {
                                     </div>
                                 </div>
 
-                                {/* Organizations */}
+                                {/* Organizations (immutable) */}
                                 <div className="flex items-start gap-2 text-sm">
                                     <span className="text-slate-400 font-medium w-20 flex-shrink-0 pt-0.5">Orgs</span>
-                                    {editingBasicInfo ? (
-                                        <div className="flex-1 space-y-1.5">
-                                            <div className="flex flex-wrap gap-1.5">
-                                                {draftOrgs.map(org => (
-                                                    <span key={org} className="text-xs font-semibold text-teal-700 bg-teal-50 border border-teal-200 px-2 py-0.5 rounded flex items-center gap-1">
-                                                        {org}
-                                                        <button onClick={() => setDraftOrgs(draftOrgs.filter(o => o !== org))} className="hover:text-red-500"><X className="w-3 h-3" /></button>
-                                                    </span>
-                                                ))}
-                                            </div>
-                                            <div className="flex items-center gap-1">
-                                                <input type="text" value={newOrgValue} onChange={e => setNewOrgValue(e.target.value)}
-                                                    onKeyDown={e => e.key === 'Enter' && addOrg()}
-                                                    placeholder="Add organization" className="text-xs border border-slate-300 rounded-lg px-2 py-1 w-48 focus:outline-none focus:ring-1 focus:ring-teal-500" />
-                                                <button onClick={addOrg} className="text-teal-600 hover:text-teal-800"><Plus className="w-3.5 h-3.5" /></button>
-                                            </div>
-                                        </div>
-                                    ) : (
-                                        <div className="flex flex-wrap gap-1.5">
-                                            {(faculty.basic_info?.organizations || faculty.organizations)?.map(org => (
-                                                <span key={org} className="text-xs font-semibold text-teal-700 bg-teal-50 border border-teal-200 px-2 py-0.5 rounded">{org}</span>
-                                            ))}
-                                        </div>
-                                    )}
+                                    <div className="flex flex-wrap gap-1.5">
+                                        {(faculty.basic_info?.organizations || faculty.organizations)?.map(org => (
+                                            <span key={org} className="text-xs font-semibold text-teal-700 bg-teal-50 border border-teal-200 px-2 py-0.5 rounded">{org}</span>
+                                        ))}
+                                    </div>
                                 </div>
 
                                 {/* Source URL */}
@@ -657,7 +625,7 @@ export const FacultyProfilePage: React.FC = () => {
                                 <div className="space-y-4 max-h-[420px] overflow-y-auto pr-1">
                                     {sortedYears.map(year => (
                                         <div key={year}>
-                                            <p className="text-xs font-bold text-teal-700 mb-1.5">{year}</p>
+                                            <p className="text-lg font-extrabold text-teal-700 mb-1.5">{year}</p>
                                             <ul className="space-y-0 divide-y divide-slate-100">
                                                 {pubsByYear[year].map(pub => (
                                                     <li key={pub.id} className="flex items-start gap-2 group py-2">

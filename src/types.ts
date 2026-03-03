@@ -180,6 +180,7 @@ export interface FacultyProfile {
 /** Source-info update (basic_info + data_from). Keywords are regenerated. */
 export interface FacultySourcePatch {
     email: string;
+    force_regenerate_keywords?: boolean;
     basic_info?: {
         faculty_name?: string;
         position?: string;
