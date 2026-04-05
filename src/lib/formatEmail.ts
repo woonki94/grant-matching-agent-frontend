@@ -43,8 +43,8 @@ export function formatGroupContent(gm: GroupMatchResult): string {
 
     lines.push(`Agency: ${gm.agency_name || 'N/A'}`);
 
-    if (gm.team_score !== undefined) {
-        lines.push(`Team Fit: ${(gm.team_score * 100).toFixed(0)}%`);
+    if (j.team_grant_fit !== undefined) {
+        lines.push(`Team Fit: ${(j.team_grant_fit * 100).toFixed(0)}%`);
     }
 
     lines.push(`Team: ${gm.team_members.map(m => m.faculty_name).join(', ')}`);

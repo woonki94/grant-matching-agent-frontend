@@ -2,13 +2,18 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
     ArrowLeft, User, Search, ExternalLink, BookOpen, Tag, Globe,
-    Pencil, X, Plus, Trash2, Save, Lock, Check,
+    Pencil, X, Plus, Trash2, Save, Lock, Check, UserPlus, Code2,
 } from 'lucide-react';
-import { fetchFacultyByEmail, patchFacultySource, patchFacultyKeywords } from '../lib/api';
+import { fetchFacultyByEmail, patchFacultySource, patchFacultyKeywords, createFaculty, createFacultyFromJson } from '../lib/api';
+import { FacultyInputRow } from '../components/FacultyInputRow';
 import type {
-    FacultyProfile, FacultyKeywords,
+    FacultyProfile, FacultyKeywords, FacultyInput,
     KeywordUpdateMode,
 } from '../types';
+
+function makeFaculty(): FacultyInput {
+    return { id: `${Date.now()}-${Math.random()}`, email: '', osuUrl: '', cvFile: undefined };
+}
 
 // ── Inline helper components ──────────────────────────────────────────────────
 
@@ -221,6 +226,9 @@ const KeywordSectionEditable: React.FC<{
 export const FacultyProfilePage: React.FC = () => {
     const navigate = useNavigate();
 
+    // ── tab state
+    const [activeTab, setActiveTab] = useState<'lookup' | 'new'>('lookup');
+
     // ── lookup state
     const [email, setEmail] = useState('');
     const [isLoading, setIsLoading] = useState(false);
@@ -253,6 +261,13 @@ export const FacultyProfilePage: React.FC = () => {
     // ── draft state for keywords
     const [draftResearch, setDraftResearch] = useState<FacultyKeywords>({ domain: [], specialization: [] });
     const [draftApplication, setDraftApplication] = useState<FacultyKeywords>({ domain: [], specialization: [] });
+
+    // ── new faculty state
+    const [newFaculty, setNewFaculty] = useState<FacultyInput[]>([makeFaculty()]);
+    const [newFacultyInputMode, setNewFacultyInputMode] = useState<'form' | 'json'>('form');
+    const [jsonInput, setJsonInput] = useState('');
+    const [newFacultyLoading, setNewFacultyLoading] = useState(false);
+    const [newFacultyBanner, setNewFacultyBanner] = useState<{ msg: string; mode: 'success' | 'error' } | null>(null);
 
     // ── lookup ────────────────────────────────────────────────────────────────
 
@@ -447,8 +462,57 @@ export const FacultyProfilePage: React.FC = () => {
     };
 
     // ════════════════════════════════════════════════════════════════════════════
+    // ── New faculty submission ────────────────────────────────────────────────
+    // ════════════════════════════════════════════════════════════════════════════
+
+    const updateNewFaculty = (index: number, updated: FacultyInput) => {
+        setNewFaculty(prev => prev.map((f, i) => i === index ? updated : f));
+    };
+    const removeNewFaculty = (index: number) => {
+        setNewFaculty(prev => prev.filter((_, i) => i !== index));
+    };
+    const addNewFaculty = () => setNewFaculty(prev => [...prev, makeFaculty()]);
+
+    const handleNewFacultySubmit = async () => {
+        setNewFacultyBanner(null);
+        setNewFacultyLoading(true);
+        try {
+            if (newFacultyInputMode === 'json') {
+                const parsed = JSON.parse(jsonInput);
+                const resp = await createFacultyFromJson(parsed);
+                setNewFacultyBanner({ msg: resp.message || 'Faculty created successfully.', mode: 'success' });
+                setJsonInput('');
+            } else {
+                const valid = newFaculty.filter(f => f.email.trim());
+                if (valid.length === 0) { setNewFacultyBanner({ msg: 'At least one email is required.', mode: 'error' }); return; }
+                const resp = await createFaculty(valid.map(f => ({ email: f.email, osuUrl: f.osuUrl, cvFile: f.cvFile })));
+                setNewFacultyBanner({ msg: resp.message || `${resp.created ?? valid.length} faculty created.`, mode: 'success' });
+                setNewFaculty([makeFaculty()]);
+            }
+        } catch (err: any) {
+            setNewFacultyBanner({ msg: err.message || 'Something went wrong.', mode: 'error' });
+        } finally { setNewFacultyLoading(false); }
+    };
+
+    // ════════════════════════════════════════════════════════════════════════════
     // ── Derived data ─────────────────────────────────────────────────────────
     // ════════════════════════════════════════════════════════════════════════════
+
+    // Consolidate attached files: one entry per unique source_url, summing char counts
+    const consolidatedFiles = React.useMemo(() => {
+        const raw = faculty?.data_from?.attached_files;
+        if (!raw?.length) return [];
+        const map = new Map<string, typeof raw[number]>();
+        for (const af of raw) {
+            const existing = map.get(af.source_url);
+            if (existing) {
+                existing.content_char_count += af.content_char_count;
+            } else {
+                map.set(af.source_url, { ...af });
+            }
+        }
+        return Array.from(map.values());
+    }, [faculty?.data_from?.attached_files]);
 
     // Group publications by year (deduplicated)
     type PubEntry = { id: number; title: string };
@@ -482,269 +546,405 @@ export const FacultyProfilePage: React.FC = () => {
             </header>
 
             <div className="max-w-2xl mx-auto px-4 py-10 space-y-8">
-                {/* ── Email Lookup ── */}
-                <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-7 space-y-5">
-                    <h2 className="text-sm font-semibold text-slate-700 uppercase tracking-wide">Look Up Faculty</h2>
-                    <div>
-                        <label className="block text-xs font-semibold text-slate-600 mb-1">
-                            Faculty Email <span className="text-red-500">*</span>
-                        </label>
-                        <input
-                            type="email" value={email}
-                            onChange={e => setEmail(e.target.value)}
-                            onKeyDown={e => e.key === 'Enter' && handleLookup()}
-                            placeholder="alan.fern@oregonstate.edu"
-                            className="w-full px-3 py-2.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent placeholder:text-slate-400"
-                        />
-                    </div>
-                    {error && !faculty && (
-                        <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{error}</p>
-                    )}
-                    <button onClick={handleLookup} disabled={isLoading}
-                        className="w-full flex items-center justify-center gap-2 py-3 bg-teal-600 hover:bg-teal-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-semibold rounded-xl transition-colors">
-                        <Search className="w-4 h-4" />{isLoading ? 'Looking up…' : 'Look Up'}
+                {/* ── Tab Switcher ── */}
+                <div className="flex gap-1 bg-slate-100 rounded-xl p-1">
+                    <button
+                        onClick={() => setActiveTab('lookup')}
+                        className={`flex-1 flex items-center justify-center gap-2 py-2.5 text-sm font-semibold rounded-lg transition-all duration-200 ${activeTab === 'lookup'
+                            ? 'bg-white text-teal-700 shadow-sm'
+                            : 'text-slate-500 hover:text-slate-700'
+                            }`}
+                    >
+                        <Search className="w-4 h-4" />Look Up
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('new')}
+                        className={`flex-1 flex items-center justify-center gap-2 py-2.5 text-sm font-semibold rounded-lg transition-all duration-200 ${activeTab === 'new'
+                            ? 'bg-white text-teal-700 shadow-sm'
+                            : 'text-slate-500 hover:text-slate-700'
+                            }`}
+                    >
+                        <UserPlus className="w-4 h-4" />New Faculty
                     </button>
                 </div>
 
-                {isLoading && (
-                    <div className="flex justify-center py-8">
-                        <div className="w-8 h-8 border-4 border-teal-200 border-t-teal-600 rounded-full animate-spin" />
-                    </div>
-                )}
-                {error && !isLoading && !faculty && (
-                    <div className="bg-red-50 border border-red-200 rounded-xl px-5 py-4 text-sm text-red-700">{error}</div>
-                )}
-
-                {/* ── Save banner ── */}
-                {banner && <SaveBanner message={banner.msg} mode={banner.mode} onDismiss={() => setBanner(null)} />}
-
-                {/* Regenerating keywords alert */}
-                {savingSource && (
-                    <div className="flex items-center gap-3 bg-indigo-50 border border-indigo-200 rounded-xl px-5 py-4 animate-pulse">
-                        <div className="w-5 h-5 border-2 border-indigo-300 border-t-indigo-600 rounded-full animate-spin flex-shrink-0" />
-                        <p className="text-sm font-medium text-indigo-800">
-                            Saving changes and regenerating keywords — this may take a moment…
-                        </p>
-                    </div>
-                )}
-
-                {/* ═══════════════════════════════════════════════════════════════ */}
-                {/* ── Results ── */}
-                {faculty && (
+                {/* ══════════════════════════════════════════════════════════════ */}
+                {/* ── NEW FACULTY TAB ── */}
+                {/* ══════════════════════════════════════════════════════════════ */}
+                {activeTab === 'new' && (
                     <div className="space-y-6">
+                        {/* Under construction warning */}
+                        <div className="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-xl px-5 py-4">
+                            <span className="text-amber-500 text-lg flex-shrink-0">⚠</span>
+                            <p className="text-sm font-medium text-amber-800">
+                                This feature is under development. Faculty registration is not yet connected to the backend.
+                            </p>
+                        </div>
 
-                        {/* ── Basic Info ── */}
-                        <div className="bg-white border border-teal-100 rounded-2xl shadow-sm overflow-hidden">
-                            <div className="bg-teal-50 border-b border-teal-200 px-6 py-5">
-                                <div className="flex items-start gap-3">
-                                    <div className="w-11 h-11 rounded-full bg-teal-100 text-teal-700 flex items-center justify-center font-bold text-lg flex-shrink-0">
-                                        {(faculty.basic_info?.faculty_name || faculty.name || '?')[0].toUpperCase()}
-                                    </div>
-                                    <div className="min-w-0 flex-1">
-                                        <h2 className="text-lg font-bold text-slate-900 leading-snug">
-                                            {faculty.basic_info?.faculty_name || faculty.name}
-                                        </h2>
-                                        <p className="text-sm text-slate-600">{faculty.basic_info?.position || faculty.position}</p>
-                                    </div>
-                                    {!editingBasicInfo ? (
-                                        <button onClick={startEditBasicInfo} className="text-teal-600 hover:text-teal-800 flex-shrink-0">
-                                            <Pencil className="w-4 h-4" />
-                                        </button>
-                                    ) : (
-                                        <div className="flex items-center gap-1.5 flex-shrink-0">
-                                            <button onClick={cancelEditBasicInfo} disabled={saving} className="text-slate-400 hover:text-slate-700"><X className="w-4 h-4" /></button>
-                                            <button onClick={saveBasicInfo} disabled={saving} className="text-teal-600 hover:text-teal-800"><Check className="w-4 h-4" /></button>
+                        {/* Banner */}
+                        {newFacultyBanner && (
+                            <SaveBanner
+                                message={newFacultyBanner.msg}
+                                mode={newFacultyBanner.mode}
+                                onDismiss={() => setNewFacultyBanner(null)}
+                            />
+                        )}
+
+                        {/* Mode toggle */}
+                        <div className="flex items-center gap-3">
+                            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Input mode</span>
+                            <div className="flex gap-1 bg-slate-100 rounded-lg p-0.5">
+                                <button
+                                    onClick={() => setNewFacultyInputMode('form')}
+                                    className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-md transition-all ${newFacultyInputMode === 'form'
+                                        ? 'bg-white text-teal-700 shadow-sm'
+                                        : 'text-slate-500 hover:text-slate-700'
+                                        }`}
+                                >
+                                    <UserPlus className="w-3 h-3" />Form
+                                </button>
+                                <button
+                                    onClick={() => setNewFacultyInputMode('json')}
+                                    className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-md transition-all ${newFacultyInputMode === 'json'
+                                        ? 'bg-white text-teal-700 shadow-sm'
+                                        : 'text-slate-500 hover:text-slate-700'
+                                        }`}
+                                >
+                                    <Code2 className="w-3 h-3" />JSON
+                                </button>
+                            </div>
+                        </div>
+
+                        {newFacultyInputMode === 'form' ? (
+                            /* ── Form mode ── */
+                            <div className="space-y-4">
+                                {newFaculty.map((f, idx) => (
+                                    <FacultyInputRow
+                                        key={f.id}
+                                        faculty={f}
+                                        index={idx}
+                                        onChange={updated => updateNewFaculty(idx, updated)}
+                                        onRemove={() => removeNewFaculty(idx)}
+                                        canRemove={newFaculty.length > 1}
+                                    />
+                                ))}
+
+                                <button
+                                    onClick={addNewFaculty}
+                                    className="flex items-center gap-2 px-4 py-2.5 text-sm font-semibold text-teal-600 border-2 border-dashed border-teal-200 rounded-xl hover:border-teal-400 hover:bg-teal-50 transition-colors w-full justify-center"
+                                >
+                                    <Plus className="w-4 h-4" />
+                                    Add Another Faculty Member
+                                </button>
+
+                                <button
+                                    onClick={handleNewFacultySubmit}
+                                    disabled={newFacultyLoading}
+                                    className="w-full flex items-center justify-center gap-2 py-3 bg-teal-600 hover:bg-teal-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-semibold rounded-xl transition-colors"
+                                >
+                                    <UserPlus className="w-4 h-4" />
+                                    {newFacultyLoading ? 'Registering…' : 'Register Faculty'}
+                                </button>
+                            </div>
+                        ) : (
+                            /* ── JSON mode ── */
+                            <div className="space-y-4">
+                                <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-3">
+                                    <label className="block text-xs font-semibold text-slate-600 mb-1">
+                                        Paste faculty JSON
+                                    </label>
+                                    <textarea
+                                        value={jsonInput}
+                                        onChange={e => setJsonInput(e.target.value)}
+                                        placeholder={`[\n  {\n    "email": "afern@oregonstate.edu",\n    "osu_url": "https://engineering.oregonstate.edu/people/afern"\n  },\n  {\n    "email": "another@oregonstate.edu",\n    "osu_url": "https://..."\n  }\n]`}
+                                        rows={12}
+                                        className="w-full px-3 py-2.5 text-sm font-mono border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent placeholder:text-slate-400 resize-none bg-slate-50"
+                                    />
+                                </div>
+
+                                <button
+                                    onClick={handleNewFacultySubmit}
+                                    disabled={newFacultyLoading || !jsonInput.trim()}
+                                    className="w-full flex items-center justify-center gap-2 py-3 bg-teal-600 hover:bg-teal-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-semibold rounded-xl transition-colors"
+                                >
+                                    <Code2 className="w-4 h-4" />
+                                    {newFacultyLoading ? 'Submitting…' : 'Submit JSON'}
+                                </button>
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                {/* ══════════════════════════════════════════════════════════════ */}
+                {/* ── LOOK UP TAB ── */}
+                {/* ══════════════════════════════════════════════════════════════ */}
+                {activeTab === 'lookup' && (<>
+                    {/* ── Email Lookup ── */}
+                    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-7 space-y-5">
+                        <h2 className="text-sm font-semibold text-slate-700 uppercase tracking-wide">Look Up Faculty</h2>
+                        <div>
+                            <label className="block text-xs font-semibold text-slate-600 mb-1">
+                                Faculty Email <span className="text-red-500">*</span>
+                            </label>
+                            <input
+                                type="email" value={email}
+                                onChange={e => setEmail(e.target.value)}
+                                onKeyDown={e => e.key === 'Enter' && handleLookup()}
+                                placeholder="alan.fern@oregonstate.edu"
+                                className="w-full px-3 py-2.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent placeholder:text-slate-400"
+                            />
+                        </div>
+                        {error && !faculty && (
+                            <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{error}</p>
+                        )}
+                        <button onClick={handleLookup} disabled={isLoading}
+                            className="w-full flex items-center justify-center gap-2 py-3 bg-teal-600 hover:bg-teal-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-semibold rounded-xl transition-colors">
+                            <Search className="w-4 h-4" />{isLoading ? 'Looking up…' : 'Look Up'}
+                        </button>
+                    </div>
+
+                    {isLoading && (
+                        <div className="flex justify-center py-8">
+                            <div className="w-8 h-8 border-4 border-teal-200 border-t-teal-600 rounded-full animate-spin" />
+                        </div>
+                    )}
+                    {error && !isLoading && !faculty && (
+                        <div className="bg-red-50 border border-red-200 rounded-xl px-5 py-4 text-sm text-red-700">{error}</div>
+                    )}
+
+                    {/* ── Save banner ── */}
+                    {banner && <SaveBanner message={banner.msg} mode={banner.mode} onDismiss={() => setBanner(null)} />}
+
+                    {/* Regenerating keywords alert */}
+                    {savingSource && (
+                        <div className="flex items-center gap-3 bg-indigo-50 border border-indigo-200 rounded-xl px-5 py-4 animate-pulse">
+                            <div className="w-5 h-5 border-2 border-indigo-300 border-t-indigo-600 rounded-full animate-spin flex-shrink-0" />
+                            <p className="text-sm font-medium text-indigo-800">
+                                Saving changes and regenerating keywords — this may take a moment…
+                            </p>
+                        </div>
+                    )}
+
+                    {/* ═══════════════════════════════════════════════════════════════ */}
+                    {/* ── Results ── */}
+                    {faculty && (
+                        <div className="space-y-6">
+
+                            {/* ── Basic Info ── */}
+                            <div className="bg-white border border-teal-100 rounded-2xl shadow-sm overflow-hidden">
+                                <div className="bg-teal-50 border-b border-teal-200 px-6 py-5">
+                                    <div className="flex items-start gap-3">
+                                        <div className="w-11 h-11 rounded-full bg-teal-100 text-teal-700 flex items-center justify-center font-bold text-lg flex-shrink-0">
+                                            {(faculty.basic_info?.faculty_name || faculty.name || '?')[0].toUpperCase()}
                                         </div>
-                                    )}
+                                        <div className="min-w-0 flex-1">
+                                            <h2 className="text-lg font-bold text-slate-900 leading-snug">
+                                                {faculty.basic_info?.faculty_name || faculty.name}
+                                            </h2>
+                                            <p className="text-sm text-slate-600">{faculty.basic_info?.position || faculty.position}</p>
+                                        </div>
+                                        {!editingBasicInfo ? (
+                                            <button onClick={startEditBasicInfo} className="text-teal-600 hover:text-teal-800 flex-shrink-0">
+                                                <Pencil className="w-4 h-4" />
+                                            </button>
+                                        ) : (
+                                            <div className="flex items-center gap-1.5 flex-shrink-0">
+                                                <button onClick={cancelEditBasicInfo} disabled={saving} className="text-slate-400 hover:text-slate-700"><X className="w-4 h-4" /></button>
+                                                <button onClick={saveBasicInfo} disabled={saving} className="text-teal-600 hover:text-teal-800"><Check className="w-4 h-4" /></button>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+
+                                <div className="px-6 py-5 space-y-3">
+                                    {/* Email (immutable) */}
+                                    <div className="flex items-center gap-2 text-sm">
+                                        <span className="text-slate-400 font-medium w-20 flex-shrink-0">Email</span>
+                                        <div className="flex items-center gap-1.5">
+                                            <Lock className="w-3 h-3 text-slate-300" />
+                                            <span className="text-slate-500">{faculty.basic_info?.email || faculty.email}</span>
+                                        </div>
+                                    </div>
+
+                                    {/* Organizations (immutable) */}
+                                    <div className="flex items-start gap-2 text-sm">
+                                        <span className="text-slate-400 font-medium w-20 flex-shrink-0 pt-0.5">Orgs</span>
+                                        <div className="flex flex-wrap gap-1.5">
+                                            {(faculty.basic_info?.organizations || faculty.organizations)?.map(org => (
+                                                <span key={org} className="text-xs font-semibold text-teal-700 bg-teal-50 border border-teal-200 px-2 py-0.5 rounded">{org}</span>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    {/* Source URL */}
+                                    <div className="flex items-center gap-2 text-sm">
+                                        <span className="text-slate-400 font-medium w-20 flex-shrink-0">Source</span>
+                                        {editingBasicInfo ? (
+                                            <input type="url" value={draftSourceUrl} onChange={e => setDraftSourceUrl(e.target.value)}
+                                                placeholder="https://..." className="flex-1 text-sm border border-slate-300 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-teal-500" />
+                                        ) : faculty.data_from?.info_source_url ? (
+                                            <a href={faculty.data_from.info_source_url} target="_blank" rel="noopener noreferrer"
+                                                className="inline-flex items-center gap-1 text-teal-700 hover:underline">
+                                                <ExternalLink className="w-3 h-3" />Profile page
+                                            </a>
+                                        ) : <span className="text-slate-400">—</span>}
+                                    </div>
                                 </div>
                             </div>
 
-                            <div className="px-6 py-5 space-y-3">
-                                {/* Email (immutable) */}
-                                <div className="flex items-center gap-2 text-sm">
-                                    <span className="text-slate-400 font-medium w-20 flex-shrink-0">Email</span>
-                                    <div className="flex items-center gap-1.5">
-                                        <Lock className="w-3 h-3 text-slate-300" />
-                                        <span className="text-slate-500">{faculty.basic_info?.email || faculty.email}</span>
-                                    </div>
-                                </div>
+                            {/* ── Publications ── */}
+                            {sortedYears.length > 0 && (
+                                <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-6 space-y-4">
+                                    <SectionHeader
+                                        icon={<BookOpen className="w-4 h-4 text-slate-500" />}
+                                        label="Publications"
+                                        count={Object.values(pubsByYear).flat().length}
+                                        editing={editingPubs} saving={saving}
+                                        onEdit={startEditPubs} onCancel={cancelEditPubs} onSave={saveFetchYearRange}
+                                    />
 
-                                {/* Organizations (immutable) */}
-                                <div className="flex items-start gap-2 text-sm">
-                                    <span className="text-slate-400 font-medium w-20 flex-shrink-0 pt-0.5">Orgs</span>
-                                    <div className="flex flex-wrap gap-1.5">
-                                        {(faculty.basic_info?.organizations || faculty.organizations)?.map(org => (
-                                            <span key={org} className="text-xs font-semibold text-teal-700 bg-teal-50 border border-teal-200 px-2 py-0.5 rounded">{org}</span>
+                                    {editingPubs && (
+                                        <div className="bg-slate-50 rounded-lg border border-slate-200 px-4 py-3 space-y-2">
+                                            <label className="text-xs font-semibold text-slate-600">Fetch year range</label>
+                                            <div className="flex items-center gap-2">
+                                                <input type="number" value={draftYearFrom} onChange={e => setDraftYearFrom(e.target.value ? Number(e.target.value) : '')}
+                                                    placeholder="From" className="w-24 text-sm border border-slate-300 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-teal-500" />
+                                                <span className="text-xs text-slate-400">to</span>
+                                                <input type="number" value={draftYearTo} onChange={e => setDraftYearTo(e.target.value ? Number(e.target.value) : '')}
+                                                    placeholder="To" className="w-24 text-sm border border-slate-300 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-teal-500" />
+                                                <span className="text-xs text-slate-400">
+                                                    Current: {sortedYears.length > 0
+                                                        ? `${sortedYears[sortedYears.length - 1]}–${sortedYears[0]}`
+                                                        : '—'}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    <div className="space-y-4 max-h-[420px] overflow-y-auto pr-1">
+                                        {sortedYears.map(year => (
+                                            <div key={year}>
+                                                <p className="text-lg font-extrabold text-teal-700 mb-1.5">{year}</p>
+                                                <ul className="space-y-0 divide-y divide-slate-100">
+                                                    {pubsByYear[year].map(pub => (
+                                                        <li key={pub.id} className="flex items-start gap-2 group py-2">
+                                                            <span className="w-1.5 h-1.5 rounded-full bg-slate-300 flex-shrink-0 mt-1.5" />
+                                                            <span className="flex-1 text-sm text-slate-700 leading-relaxed">
+                                                                {pub.title}
+                                                            </span>
+                                                            {editingPubs && (
+                                                                <button onClick={() => deletePub(pub.id)} disabled={saving}
+                                                                    className="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-red-500 flex-shrink-0 mt-0.5 transition-opacity">
+                                                                    <Trash2 className="w-3.5 h-3.5" />
+                                                                </button>
+                                                            )}
+                                                        </li>
+                                                    ))}
+                                                </ul>
+                                            </div>
                                         ))}
                                     </div>
                                 </div>
+                            )}
 
-                                {/* Source URL */}
-                                <div className="flex items-center gap-2 text-sm">
-                                    <span className="text-slate-400 font-medium w-20 flex-shrink-0">Source</span>
-                                    {editingBasicInfo ? (
-                                        <input type="url" value={draftSourceUrl} onChange={e => setDraftSourceUrl(e.target.value)}
-                                            placeholder="https://..." className="flex-1 text-sm border border-slate-300 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-teal-500" />
-                                    ) : faculty.data_from?.info_source_url ? (
-                                        <a href={faculty.data_from.info_source_url} target="_blank" rel="noopener noreferrer"
-                                            className="inline-flex items-center gap-1 text-teal-700 hover:underline">
-                                            <ExternalLink className="w-3 h-3" />Profile page
-                                        </a>
-                                    ) : <span className="text-slate-400">—</span>}
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* ── Publications ── */}
-                        {sortedYears.length > 0 && (
-                            <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-6 space-y-4">
+                            {/* ── Attached Files / Sources ── */}
+                            <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-6 space-y-3">
                                 <SectionHeader
-                                    icon={<BookOpen className="w-4 h-4 text-slate-500" />}
-                                    label="Publications"
-                                    count={Object.values(pubsByYear).flat().length}
-                                    editing={editingPubs} saving={saving}
-                                    onEdit={startEditPubs} onCancel={cancelEditPubs} onSave={saveFetchYearRange}
+                                    icon={<Globe className="w-4 h-4 text-slate-500" />}
+                                    label="Source Links"
+                                    count={consolidatedFiles.length}
+                                    editing={editingFiles} saving={saving}
+                                    onEdit={startEditFiles} onCancel={cancelEditFiles}
+                                    onSave={() => setEditingFiles(false)}
                                 />
 
-                                {editingPubs && (
-                                    <div className="bg-slate-50 rounded-lg border border-slate-200 px-4 py-3 space-y-2">
-                                        <label className="text-xs font-semibold text-slate-600">Fetch year range</label>
-                                        <div className="flex items-center gap-2">
-                                            <input type="number" value={draftYearFrom} onChange={e => setDraftYearFrom(e.target.value ? Number(e.target.value) : '')}
-                                                placeholder="From" className="w-24 text-sm border border-slate-300 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-teal-500" />
-                                            <span className="text-xs text-slate-400">to</span>
-                                            <input type="number" value={draftYearTo} onChange={e => setDraftYearTo(e.target.value ? Number(e.target.value) : '')}
-                                                placeholder="To" className="w-24 text-sm border border-slate-300 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-teal-500" />
-                                            <span className="text-xs text-slate-400">
-                                                Current: {faculty.data_from?.publication_fetched_upto_year ?? '—'}
-                                            </span>
-                                        </div>
+                                <ul className="space-y-2">
+                                    {consolidatedFiles.map(af => (
+                                        <li key={af.id ?? af.additional_info_id} className="flex items-center gap-2 text-sm group">
+                                            <ExternalLink className="w-3 h-3 text-slate-400 flex-shrink-0" />
+                                            {editingFileId === (af.id ?? af.additional_info_id) ? (
+                                                <>
+                                                    <input type="url" value={editingFileUrl} onChange={e => setEditingFileUrl(e.target.value)}
+                                                        className="flex-1 text-sm border border-slate-300 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-teal-500" />
+                                                    <button onClick={saveEditFile} disabled={saving} className="text-teal-600 hover:text-teal-800"><Check className="w-3.5 h-3.5" /></button>
+                                                    <button onClick={() => setEditingFileId(null)} className="text-slate-400 hover:text-slate-700"><X className="w-3.5 h-3.5" /></button>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <a href={af.source_url} target="_blank" rel="noopener noreferrer"
+                                                        className="text-teal-700 hover:underline truncate flex-1">{af.source_url}</a>
+                                                    <span className="text-[10px] text-slate-400 flex-shrink-0">
+                                                        {af.detected_type} · {(af.content_char_count / 1000).toFixed(1)}k chars
+                                                    </span>
+                                                    {editingFiles && (
+                                                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                            <button onClick={() => startEditFile(af.id ?? af.additional_info_id, af.source_url)}
+                                                                className="text-slate-400 hover:text-teal-600"><Pencil className="w-3 h-3" /></button>
+                                                            <button onClick={() => deleteFile(af.id ?? af.additional_info_id)} disabled={saving}
+                                                                className="text-slate-400 hover:text-red-500"><Trash2 className="w-3 h-3" /></button>
+                                                        </div>
+                                                    )}
+                                                </>
+                                            )}
+                                        </li>
+                                    ))}
+                                </ul>
+
+                                {/* Add new file */}
+                                {editingFiles && (
+                                    <div className="flex items-center gap-2 pt-2 border-t border-slate-100">
+                                        <input type="url" value={draftNewFileUrl} onChange={e => setDraftNewFileUrl(e.target.value)}
+                                            onKeyDown={e => e.key === 'Enter' && addFile()}
+                                            placeholder="https://example.com/page-or-cv.pdf"
+                                            className="flex-1 text-sm border border-dashed border-slate-300 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-teal-500" />
+                                        <button onClick={addFile} disabled={saving || !draftNewFileUrl.trim()}
+                                            className="flex items-center gap-1 text-xs font-semibold text-teal-600 hover:text-teal-800 disabled:opacity-40">
+                                            <Plus className="w-3.5 h-3.5" />Add
+                                        </button>
                                     </div>
                                 )}
-
-                                <div className="space-y-4 max-h-[420px] overflow-y-auto pr-1">
-                                    {sortedYears.map(year => (
-                                        <div key={year}>
-                                            <p className="text-lg font-extrabold text-teal-700 mb-1.5">{year}</p>
-                                            <ul className="space-y-0 divide-y divide-slate-100">
-                                                {pubsByYear[year].map(pub => (
-                                                    <li key={pub.id} className="flex items-start gap-2 group py-2">
-                                                        <span className="w-1.5 h-1.5 rounded-full bg-slate-300 flex-shrink-0 mt-1.5" />
-                                                        <span className="flex-1 text-sm text-slate-700 leading-relaxed">
-                                                            {pub.title}
-                                                        </span>
-                                                        {editingPubs && (
-                                                            <button onClick={() => deletePub(pub.id)} disabled={saving}
-                                                                className="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-red-500 flex-shrink-0 mt-0.5 transition-opacity">
-                                                                <Trash2 className="w-3.5 h-3.5" />
-                                                            </button>
-                                                        )}
-                                                    </li>
-                                                ))}
-                                            </ul>
-                                        </div>
-                                    ))}
-                                </div>
                             </div>
-                        )}
 
-                        {/* ── Attached Files / Sources ── */}
-                        <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-6 space-y-3">
-                            <SectionHeader
-                                icon={<Globe className="w-4 h-4 text-slate-500" />}
-                                label="Source Links"
-                                count={faculty.data_from?.attached_files?.length}
-                                editing={editingFiles} saving={saving}
-                                onEdit={startEditFiles} onCancel={cancelEditFiles}
-                                onSave={() => setEditingFiles(false)}
-                            />
+                            {/* ── Keywords ── */}
+                            {faculty.all_keywords && (
+                                <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-6 space-y-6">
+                                    <SectionHeader
+                                        icon={<Tag className="w-4 h-4 text-slate-500" />}
+                                        label="Keywords"
+                                        editing={editingKeywords} saving={saving}
+                                        onEdit={startEditKeywords} onCancel={cancelEditKeywords} onSave={saveKeywords}
+                                    />
 
-                            <ul className="space-y-2">
-                                {faculty.data_from?.attached_files?.map(af => (
-                                    <li key={af.id ?? af.additional_info_id} className="flex items-center gap-2 text-sm group">
-                                        <ExternalLink className="w-3 h-3 text-slate-400 flex-shrink-0" />
-                                        {editingFileId === (af.id ?? af.additional_info_id) ? (
-                                            <>
-                                                <input type="url" value={editingFileUrl} onChange={e => setEditingFileUrl(e.target.value)}
-                                                    className="flex-1 text-sm border border-slate-300 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-teal-500" />
-                                                <button onClick={saveEditFile} disabled={saving} className="text-teal-600 hover:text-teal-800"><Check className="w-3.5 h-3.5" /></button>
-                                                <button onClick={() => setEditingFileId(null)} className="text-slate-400 hover:text-slate-700"><X className="w-3.5 h-3.5" /></button>
-                                            </>
-                                        ) : (
-                                            <>
-                                                <a href={af.source_url} target="_blank" rel="noopener noreferrer"
-                                                    className="text-teal-700 hover:underline truncate flex-1">{af.source_url}</a>
-                                                <span className="text-[10px] text-slate-400 flex-shrink-0">
-                                                    {af.detected_type} · {(af.content_char_count / 1000).toFixed(1)}k chars
-                                                </span>
-                                                {editingFiles && (
-                                                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                        <button onClick={() => startEditFile(af.id ?? af.additional_info_id, af.source_url)}
-                                                            className="text-slate-400 hover:text-teal-600"><Pencil className="w-3 h-3" /></button>
-                                                        <button onClick={() => deleteFile(af.id ?? af.additional_info_id)} disabled={saving}
-                                                            className="text-slate-400 hover:text-red-500"><Trash2 className="w-3 h-3" /></button>
-                                                    </div>
-                                                )}
-                                            </>
-                                        )}
-                                    </li>
-                                ))}
-                            </ul>
-
-                            {/* Add new file */}
-                            {editingFiles && (
-                                <div className="flex items-center gap-2 pt-2 border-t border-slate-100">
-                                    <input type="url" value={draftNewFileUrl} onChange={e => setDraftNewFileUrl(e.target.value)}
-                                        onKeyDown={e => e.key === 'Enter' && addFile()}
-                                        placeholder="https://example.com/page-or-cv.pdf"
-                                        className="flex-1 text-sm border border-dashed border-slate-300 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-teal-500" />
-                                    <button onClick={addFile} disabled={saving || !draftNewFileUrl.trim()}
-                                        className="flex items-center gap-1 text-xs font-semibold text-teal-600 hover:text-teal-800 disabled:opacity-40">
-                                        <Plus className="w-3.5 h-3.5" />Add
-                                    </button>
+                                    {editingKeywords ? (
+                                        <>
+                                            <KeywordSectionEditable
+                                                title="Research" keywords={draftResearch} accent="teal"
+                                                onChange={setDraftResearch}
+                                            />
+                                            <div className="border-t border-slate-100 pt-5">
+                                                <KeywordSectionEditable
+                                                    title="Application" keywords={draftApplication} accent="violet"
+                                                    onChange={setDraftApplication}
+                                                />
+                                            </div>
+                                        </>
+                                    ) : (
+                                        <>
+                                            {faculty.all_keywords.research && (
+                                                <KeywordSectionReadonly title="Research" keywords={faculty.all_keywords.research} accent="teal" />
+                                            )}
+                                            {faculty.all_keywords.application && (
+                                                <div className="border-t border-slate-100 pt-5">
+                                                    <KeywordSectionReadonly title="Application" keywords={faculty.all_keywords.application} accent="violet" />
+                                                </div>
+                                            )}
+                                        </>
+                                    )}
                                 </div>
                             )}
                         </div>
-
-                        {/* ── Keywords ── */}
-                        {faculty.all_keywords && (
-                            <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-6 space-y-6">
-                                <SectionHeader
-                                    icon={<Tag className="w-4 h-4 text-slate-500" />}
-                                    label="Keywords"
-                                    editing={editingKeywords} saving={saving}
-                                    onEdit={startEditKeywords} onCancel={cancelEditKeywords} onSave={saveKeywords}
-                                />
-
-                                {editingKeywords ? (
-                                    <>
-                                        <KeywordSectionEditable
-                                            title="Research" keywords={draftResearch} accent="teal"
-                                            onChange={setDraftResearch}
-                                        />
-                                        <div className="border-t border-slate-100 pt-5">
-                                            <KeywordSectionEditable
-                                                title="Application" keywords={draftApplication} accent="violet"
-                                                onChange={setDraftApplication}
-                                            />
-                                        </div>
-                                    </>
-                                ) : (
-                                    <>
-                                        {faculty.all_keywords.research && (
-                                            <KeywordSectionReadonly title="Research" keywords={faculty.all_keywords.research} accent="teal" />
-                                        )}
-                                        {faculty.all_keywords.application && (
-                                            <div className="border-t border-slate-100 pt-5">
-                                                <KeywordSectionReadonly title="Application" keywords={faculty.all_keywords.application} accent="violet" />
-                                            </div>
-                                        )}
-                                    </>
-                                )}
-                            </div>
-                        )}
-                    </div>
-                )}
+                    )}
+                </>)}
             </div>
         </div>
     );

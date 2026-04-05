@@ -74,6 +74,9 @@ function parseResults(data: any): { results?: Grant[]; groupResults?: GroupMatch
         || data.orchestrator?.result?.recommendation?.recommendations
         || data.result?.recommendation?.recommendations
         || data.recommendation?.recommendations
+        || data.recommendation?.results
+        || data.orchestrator?.result?.recommendation?.results
+        || data.result?.recommendation?.results
         || data.orchestrator?.result?.matches
         || data.result?.matches
         || data.matches;
@@ -84,6 +87,9 @@ function parseResults(data: any): { results?: Grant[]; groupResults?: GroupMatch
         return {
             results: matches.map((m: any) => ({
                 ...m,
+                // Normalize field names from different backend formats
+                title: m.title || m.opportunity_title || '',
+                agency: m.agency || m.agency_name || '',
                 score: m.llm_score || m.score || 0,
             })),
         };
@@ -315,5 +321,54 @@ export function patchFacultySource(patch: FacultySourcePatch): Promise<FacultyPa
 /** Directly override keywords. Must NOT include basic_info / data_from. */
 export function patchFacultyKeywords(patch: FacultyKeywordsPatch): Promise<FacultyPatchResponse> {
     return patchFaculty(patch);
+}
+
+// ── Faculty creation ──────────────────────────────────────────────────────────
+
+export interface NewFacultyEntry {
+    email: string;
+    osuUrl: string;
+    cvFile?: File;
+}
+
+/** Create one or more faculty profiles via form data (email + osu_url + optional CV). */
+export async function createFaculty(
+    entries: NewFacultyEntry[],
+): Promise<{ ok: boolean; message: string; created?: number }> {
+    const fd = new FormData();
+    const emails = entries.map(e => e.email.trim().toLowerCase());
+    fd.append('emails', JSON.stringify(emails));
+
+    for (const e of entries) {
+        fd.append('osu_url_email', e.email.trim().toLowerCase());
+        fd.append('osu_url_value', e.osuUrl.trim());
+    }
+    for (const e of entries.filter(e => e.cvFile)) {
+        fd.append('cv_email', e.email.trim().toLowerCase());
+        fd.append('cv_file', e.cvFile!);
+    }
+
+    const response = await fetch('/api/faculty/create', { method: 'POST', body: fd });
+    if (!response.ok) {
+        const text = await response.text();
+        throw new Error(text || `Server error ${response.status}`);
+    }
+    return response.json();
+}
+
+/** Create faculty profiles from raw JSON. */
+export async function createFacultyFromJson(
+    json: unknown,
+): Promise<{ ok: boolean; message: string; created?: number }> {
+    const response = await fetch('/api/faculty/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(json),
+    });
+    if (!response.ok) {
+        const text = await response.text();
+        throw new Error(text || `Server error ${response.status}`);
+    }
+    return response.json();
 }
 

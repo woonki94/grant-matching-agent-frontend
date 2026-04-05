@@ -260,6 +260,15 @@ export const FindGrantPage: React.FC = () => {
                                             <p className="text-xs text-slate-600 leading-relaxed">{result.grant_explanation}</p>
                                         )}
 
+                                        {result.justification && (
+                                            <div className="space-y-1.5">
+                                                <p className="text-xs font-semibold text-teal-700">Why this matches your profile</p>
+                                                <p className="text-xs text-slate-600 leading-relaxed whitespace-pre-line">
+                                                    {result.justification}
+                                                </p>
+                                            </div>
+                                        )}
+
                                         {result.why_match && (
                                             <div className="space-y-3">
                                                 <p className="text-xs text-slate-700 leading-relaxed font-medium">

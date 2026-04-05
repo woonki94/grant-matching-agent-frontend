@@ -268,9 +268,9 @@ export const TeamBuilderPage: React.FC = () => {
                                                         ))}
                                                     </div>
                                                 </div>
-                                                {gm.team_score !== undefined && (
+                                                {gm.justification.team_grant_fit !== undefined && (
                                                     <span className="flex-shrink-0 text-xs font-semibold text-indigo-700 bg-indigo-100 px-2.5 py-1 rounded-full">
-                                                        {(gm.team_score * 100).toFixed(0)}% team fit
+                                                        {(gm.justification.team_grant_fit * 100).toFixed(0)}% team fit
                                                     </span>
                                                 )}
                                             </div>

@@ -11,6 +11,7 @@ export interface Grant {
     title: string;
     agency: string;
     grant_explanation?: string;
+    justification?: string;
     score: number;
     llm_score?: number;
     domain_score?: number;
@@ -58,6 +59,7 @@ export interface GroupMatchResult {
         member_strengths: GroupMatchStrength[];
         why_not_working: string[];
         recommendation: string;
+        team_grant_fit?: number;
     };
 }
 
