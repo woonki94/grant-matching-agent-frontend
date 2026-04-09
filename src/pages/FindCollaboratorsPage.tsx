@@ -283,6 +283,7 @@ export const FindCollaboratorsPage: React.FC = () => {
     const [infoMessage, setInfoMessage]       = useState<string | null>(null);
     const [error, setError]                   = useState<string | null>(null);
     const [submitted, setSubmitted]           = useState(false);
+    const [elapsedSeconds, setElapsedSeconds] = useState<number | null>(null);
 
     const updateFaculty = (i: number, upd: FacultyInput) =>
         setFaculty(prev => prev.map((f, idx) => idx === i ? upd : f));
@@ -315,6 +316,7 @@ export const FindCollaboratorsPage: React.FC = () => {
         setOppTitle(null);
         setGroupJustification(null);
         setThinkingLogs([]);
+        setElapsedSeconds(null);
         setIsLoading(true);
         setSubmitted(true);
         if (abortRef.current) abortRef.current();
@@ -349,6 +351,9 @@ export const FindCollaboratorsPage: React.FC = () => {
                         ];
                         setAllMembers(combined);
                         if (res.group_justification) setGroupJustification(res.group_justification);
+                        if (event.payload.elapsed_seconds != null) {
+                            setElapsedSeconds(event.payload.elapsed_seconds);
+                        }
                         if (!res.suggested_collaborators.length) {
                             setInfoMessage('No collaborators found in the faculty database matching this grant.');
                         }
@@ -512,9 +517,16 @@ export const FindCollaboratorsPage: React.FC = () => {
 
                         {suggestions.length > 0 && (
                             <div className="space-y-5">
-                                <h3 className="text-sm font-semibold text-slate-700">
-                                    {suggestions.length} Suggested Collaborator{suggestions.length > 1 ? 's' : ''}
-                                </h3>
+                                <div className="flex items-baseline justify-between gap-3">
+                                    <h3 className="text-sm font-semibold text-slate-700">
+                                        {suggestions.length} Suggested Collaborator{suggestions.length > 1 ? 's' : ''}
+                                    </h3>
+                                    {elapsedSeconds != null && (
+                                        <span className="text-xs text-slate-400">
+                                            Response generated in {elapsedSeconds.toFixed(2)}s
+                                        </span>
+                                    )}
+                                </div>
                                 {suggestions.map((s, i) => (
                                     <CollaboratorCard key={s.faculty_id} faculty={s} rank={i + 1} />
                                 ))}

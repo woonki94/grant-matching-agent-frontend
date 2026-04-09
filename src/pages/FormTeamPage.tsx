@@ -282,6 +282,7 @@ export const FormTeamPage: React.FC = () => {
     const [submitted,         setSubmitted]         = useState(false);
     const [oppId,             setOppId]             = useState<string>('');
     const [oppTitle,          setOppTitle]          = useState<string | null>(null);
+    const [elapsedSeconds,    setElapsedSeconds]    = useState<number | null>(null);
 
     const updateFaculty = (i: number, upd: FacultyInput) =>
         setFaculty(prev => prev.map((f, idx) => idx === i ? upd : f));
@@ -308,7 +309,7 @@ export const FormTeamPage: React.FC = () => {
         const err = validate();
         if (err) { setError(err); return; }
         setError(null); setInfoMessage(null); setTeam([]); setGroupJustification(null);
-        setOppId(''); setOppTitle(null);
+        setOppId(''); setOppTitle(null); setElapsedSeconds(null);
         setThinkingLogs([]); setIsLoading(true); setSubmitted(true);
         if (abortRef.current) abortRef.current();
 
@@ -336,6 +337,9 @@ export const FormTeamPage: React.FC = () => {
                         setOppId(res.opportunity_id ?? '');
                         setOppTitle(res.opportunity_title);
                         if (res.group_justification) setGroupJustification(res.group_justification);
+                        if (event.payload.elapsed_seconds != null) {
+                            setElapsedSeconds(event.payload.elapsed_seconds);
+                        }
                         if (!res.suggested_team.length) {
                             setInfoMessage('No faculty found in the database matching this grant.');
                         }
@@ -501,9 +505,16 @@ export const FormTeamPage: React.FC = () => {
 
                         {team.length > 0 && (
                             <div className="space-y-5">
-                                <h3 className="text-sm font-semibold text-slate-700">
-                                    Suggested Team{oppTitle ? ` for "${oppTitle}"` : ''}
-                                </h3>
+                                <div className="flex items-baseline justify-between gap-3">
+                                    <h3 className="text-sm font-semibold text-slate-700">
+                                        Suggested Team{oppTitle ? ` for "${oppTitle}"` : ''}
+                                    </h3>
+                                    {elapsedSeconds != null && (
+                                        <span className="text-xs text-slate-400">
+                                            Response generated in {elapsedSeconds.toFixed(2)}s
+                                        </span>
+                                    )}
+                                </div>
                                 <div className="space-y-3">
                                     {team.map((m, i) => (
                                         <TeamMemberCard key={m.faculty_id} faculty={m} rank={i + 1} />

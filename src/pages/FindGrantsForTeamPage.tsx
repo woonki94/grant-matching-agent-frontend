@@ -32,6 +32,7 @@ export const FindGrantsForTeamPage: React.FC = () => {
     const [infoMessage, setInfoMessage] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [submitted, setSubmitted] = useState(false);
+    const [elapsedSeconds, setElapsedSeconds] = useState<number | null>(null);
 
     const updateFaculty = (index: number, updated: FacultyInput) => {
         setFaculty(prev => prev.map((f, i) => i === index ? updated : f));
@@ -61,6 +62,7 @@ export const FindGrantsForTeamPage: React.FC = () => {
         setGroupResults([]);
         setSingleResults([]);
         setThinkingLogs([]);
+        setElapsedSeconds(null);
         setIsLoading(true);
         setSubmitted(true);
 
@@ -92,9 +94,15 @@ export const FindGrantsForTeamPage: React.FC = () => {
                     } else if (event.payload.groupResults?.length) {
                         // Ideal path: backend returned group matching results
                         setGroupResults(event.payload.groupResults);
+                        if (event.payload.elapsed_seconds != null) {
+                            setElapsedSeconds(event.payload.elapsed_seconds);
+                        }
                     } else if (event.payload.results?.length) {
                         // Fallback: orchestrator routed to one-to-one (e.g. single faculty)
                         setSingleResults(event.payload.results);
+                        if (event.payload.elapsed_seconds != null) {
+                            setElapsedSeconds(event.payload.elapsed_seconds);
+                        }
                     } else {
                         setInfoMessage(event.payload.message);
                     }
@@ -203,9 +211,16 @@ export const FindGrantsForTeamPage: React.FC = () => {
                         {/* One-to-one results fallback (single faculty or unexpected routing) */}
                         {singleResults.length > 0 && groupResults.length === 0 && (
                             <div className="space-y-3">
-                                <h3 className="text-sm font-semibold text-slate-600">
-                                    {singleResults.length} Grant{singleResults.length > 1 ? 's' : ''} Found
-                                </h3>
+                                <div className="flex items-baseline justify-between gap-3">
+                                    <h3 className="text-sm font-semibold text-slate-600">
+                                        {singleResults.length} Grant{singleResults.length > 1 ? 's' : ''} Found
+                                    </h3>
+                                    {elapsedSeconds != null && (
+                                        <span className="text-xs text-slate-400">
+                                            Response generated in {elapsedSeconds.toFixed(2)}s
+                                        </span>
+                                    )}
+                                </div>
                                 {singleResults.map((result, idx) => (
                                     <div key={idx} className="bg-white border border-blue-100 rounded-xl p-5 shadow-sm space-y-3">
                                         <div className="flex justify-between items-start gap-3">
@@ -247,9 +262,16 @@ export const FindGrantsForTeamPage: React.FC = () => {
                         {/* Group matching results */}
                         {groupResults.length > 0 && (
                             <div className="space-y-6">
-                                <h3 className="text-sm font-semibold text-slate-600">
-                                    {groupResults.length} Team Match{groupResults.length > 1 ? 'es' : ''} Found
-                                </h3>
+                                <div className="flex items-baseline justify-between gap-3">
+                                    <h3 className="text-sm font-semibold text-slate-600">
+                                        {groupResults.length} Team Match{groupResults.length > 1 ? 'es' : ''} Found
+                                    </h3>
+                                    {elapsedSeconds != null && (
+                                        <span className="text-xs text-slate-400">
+                                            Response generated in {elapsedSeconds.toFixed(2)}s
+                                        </span>
+                                    )}
+                                </div>
                                 {groupResults.map((gm, idx) => {
                                     const j = gm.justification;
                                     const grantLink = `https://simpler.grants.gov/opportunity/${gm.grant_id}`;

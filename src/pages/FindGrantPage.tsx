@@ -24,6 +24,7 @@ export const FindGrantPage: React.FC = () => {
     const [infoMessage, setInfoMessage] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [submitted, setSubmitted] = useState(false);
+    const [elapsedSeconds, setElapsedSeconds] = useState<number | null>(null);
 
     const validate = (): string | null => {
         if (!email.trim()) return 'Email is required.';
@@ -39,6 +40,7 @@ export const FindGrantPage: React.FC = () => {
         setInfoMessage(null);
         setResults([]);
         setThinkingLogs([]);
+        setElapsedSeconds(null);
         setIsLoading(true);
         setSubmitted(true);
 
@@ -65,6 +67,9 @@ export const FindGrantPage: React.FC = () => {
                         setError(event.payload.detail || event.payload.message);
                     } else if (event.payload.results?.length) {
                         setResults(event.payload.results);
+                        if (event.payload.elapsed_seconds != null) {
+                            setElapsedSeconds(event.payload.elapsed_seconds);
+                        }
                     } else {
                         setInfoMessage(event.payload.message);
                     }
@@ -224,9 +229,16 @@ export const FindGrantPage: React.FC = () => {
                         {/* Grant Results */}
                         {results.length > 0 && (
                             <div className="space-y-3">
-                                <h3 className="text-sm font-semibold text-slate-600">
-                                    {results.length} Grant{results.length > 1 ? 's' : ''} Found
-                                </h3>
+                                <div className="flex items-baseline justify-between gap-3">
+                                    <h3 className="text-sm font-semibold text-slate-600">
+                                        {results.length} Grant{results.length > 1 ? 's' : ''} Found
+                                    </h3>
+                                    {elapsedSeconds != null && (
+                                        <span className="text-xs text-slate-400">
+                                            Response generated in {elapsedSeconds.toFixed(2)}s
+                                        </span>
+                                    )}
+                                </div>
                                 {results.map((result, idx) => (
                                     <div
                                         key={idx}
