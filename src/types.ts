@@ -234,4 +234,4 @@ export interface FacultyPatchResponse {
 export type StreamEvent =
     | { type: 'step_update'; payload: { message: string; node?: string } }
     | { type: 'request_info'; payload: { type: string; message: string; emails_missing_osu_url?: string[]; orchestrator?: any } }
-    | { type: 'message'; payload: { message: string; type?: string; results?: Grant[]; groupResults?: GroupMatchResult[]; collaboratorsResult?: CollaboratorsResult; formTeamResult?: FormTeamResult; orchestrator?: any; query?: string; detail?: string } };
+    | { type: 'message'; payload: { message: string; type?: string; results?: Grant[]; groupResults?: GroupMatchResult[]; collaboratorsResult?: CollaboratorsResult; formTeamResult?: FormTeamResult; orchestrator?: any; query?: string; detail?: string; elapsed_seconds?: number } };
