@@ -5,6 +5,7 @@ import { streamChat } from '../lib/api';
 import { FacultyInputRow } from '../components/FacultyInputRow';
 import { ThinkingIndicator } from '../components/ThinkingIndicator';
 import { SendEmailButton } from '../components/SendEmailButton';
+import { MissingFacultyModal } from '../components/MissingFacultyModal';
 import { formatGroupContent } from '../lib/formatEmail';
 import type { FacultyInput, Grant, GroupMatchResult, StreamEvent } from '../types';
 
@@ -30,6 +31,7 @@ export const FindGrantsForTeamPage: React.FC = () => {
     const [groupResults, setGroupResults] = useState<GroupMatchResult[]>([]);
     const [singleResults, setSingleResults] = useState<Grant[]>([]);
     const [infoMessage, setInfoMessage] = useState<string | null>(null);
+    const [missingEmails, setMissingEmails] = useState<string[]>([]);
     const [error, setError] = useState<string | null>(null);
     const [submitted, setSubmitted] = useState(false);
     const [elapsedSeconds, setElapsedSeconds] = useState<number | null>(null);
@@ -48,7 +50,6 @@ export const FindGrantsForTeamPage: React.FC = () => {
         if (faculty.length < 2) return 'A team requires at least two faculty members.';
         for (let i = 0; i < faculty.length; i++) {
             if (!faculty[i].email.trim()) return `Email is required for Faculty ${i + 1}.`;
-            if (!faculty[i].osuUrl.trim()) return `OSU Profile URL is required for Faculty ${i + 1}.`;
         }
         return null;
     };
@@ -62,6 +63,7 @@ export const FindGrantsForTeamPage: React.FC = () => {
         setGroupResults([]);
         setSingleResults([]);
         setThinkingLogs([]);
+        setMissingEmails([]);
         setElapsedSeconds(null);
         setIsLoading(true);
         setSubmitted(true);
@@ -86,11 +88,16 @@ export const FindGrantsForTeamPage: React.FC = () => {
                     setThinkingLogs(prev => [...prev, event.payload.message]);
                 } else if (event.type === 'request_info') {
                     setIsLoading(false);
+                    if (event.payload.type === 'email_not_in_db' || event.payload.type === 'emails_not_in_db') {
+                        setMissingEmails(event.payload.emails_missing_in_db || []);
+                        return;
+                    }
                     setInfoMessage(event.payload.message);
                 } else if (event.type === 'message') {
                     setIsLoading(false);
                     if (event.payload.type === 'error') {
                         setError(event.payload.detail || event.payload.message);
+
                     } else if (event.payload.groupResults?.length) {
                         // Ideal path: backend returned group matching results
                         setGroupResults(event.payload.groupResults);
@@ -116,6 +123,12 @@ export const FindGrantsForTeamPage: React.FC = () => {
 
     return (
         <div className="min-h-screen bg-slate-50">
+            <MissingFacultyModal 
+                isOpen={missingEmails.length > 0} 
+                missingEmails={missingEmails} 
+                onClose={() => setMissingEmails([])} 
+            />
+
             {/* Top Bar */}
             <header className="bg-white border-b border-slate-200 px-6 py-4 flex items-center gap-4">
                 <button
