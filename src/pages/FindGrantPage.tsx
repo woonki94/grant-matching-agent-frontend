@@ -1,9 +1,10 @@
 import React, { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Search, Paperclip, FileText, X, Users } from 'lucide-react';
+import { ArrowLeft, Search, Users } from 'lucide-react';
 import { streamChat } from '../lib/api';
 import { ThinkingIndicator } from '../components/ThinkingIndicator';
 import { SendEmailButton } from '../components/SendEmailButton';
+import { MissingFacultyModal } from '../components/MissingFacultyModal';
 import { formatGrantContent } from '../lib/formatEmail';
 import type { Grant, StreamEvent } from '../types';
 
@@ -11,11 +12,7 @@ export const FindGrantPage: React.FC = () => {
     const navigate = useNavigate();
     const threadId = useRef(`thread-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`);
     const abortRef = useRef<(() => void) | null>(null);
-    const fileInputRef = useRef<HTMLInputElement>(null);
-
     const [email, setEmail] = useState('');
-    const [osuUrl, setOsuUrl] = useState('');
-    const [cvFile, setCvFile] = useState<File | null>(null);
     const [message, setMessage] = useState('');
 
     const [isLoading, setIsLoading] = useState(false);
@@ -23,12 +20,12 @@ export const FindGrantPage: React.FC = () => {
     const [results, setResults] = useState<Grant[]>([]);
     const [infoMessage, setInfoMessage] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
+    const [missingEmails, setMissingEmails] = useState<string[]>([]);
     const [submitted, setSubmitted] = useState(false);
     const [elapsedSeconds, setElapsedSeconds] = useState<number | null>(null);
 
     const validate = (): string | null => {
         if (!email.trim()) return 'Email is required.';
-        if (!osuUrl.trim()) return 'OSU Profile URL is required.';
         return null;
     };
 
@@ -39,6 +36,7 @@ export const FindGrantPage: React.FC = () => {
         setError(null);
         setInfoMessage(null);
         setResults([]);
+        setMissingEmails([]);
         setThinkingLogs([]);
         setElapsedSeconds(null);
         setIsLoading(true);
@@ -50,8 +48,7 @@ export const FindGrantPage: React.FC = () => {
             {
                 mode: 'single',
                 email: email.trim().toLowerCase(),
-                osuUrl: osuUrl.trim(),
-                cvFile: cvFile || undefined,
+                osuUrl: '',
                 message: message.trim() || 'Find the best matching grants for my research profile.',
                 threadId: threadId.current,
             },
@@ -60,11 +57,16 @@ export const FindGrantPage: React.FC = () => {
                     setThinkingLogs(prev => [...prev, event.payload.message]);
                 } else if (event.type === 'request_info') {
                     setIsLoading(false);
+                    if (event.payload.type === 'email_not_in_db' || event.payload.type === 'emails_not_in_db') {
+                        setMissingEmails(event.payload.emails_missing_in_db || []);
+                        return;
+                    }
                     setInfoMessage(event.payload.message);
                 } else if (event.type === 'message') {
                     setIsLoading(false);
                     if (event.payload.type === 'error') {
                         setError(event.payload.detail || event.payload.message);
+
                     } else if (event.payload.results?.length) {
                         setResults(event.payload.results);
                         if (event.payload.elapsed_seconds != null) {
@@ -80,18 +82,18 @@ export const FindGrantPage: React.FC = () => {
         abortRef.current = abort;
     };
 
-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (file?.type === 'application/pdf') setCvFile(file);
-        if (fileInputRef.current) fileInputRef.current.value = '';
-    };
-
     const handleTeamBuilder = (grantTitle: string) => {
         navigate('/team-builder/form-team', { state: { grantTitle } });
     };
 
     return (
         <div className="min-h-screen bg-slate-50">
+            <MissingFacultyModal 
+                isOpen={missingEmails.length > 0} 
+                missingEmails={missingEmails} 
+                onClose={() => setMissingEmails([])} 
+            />
+
             {/* Top Bar */}
             <header className="bg-white border-b border-slate-200 px-6 py-4 flex items-center gap-4">
                 <button
@@ -122,57 +124,14 @@ export const FindGrantPage: React.FC = () => {
                             type="email"
                             value={email}
                             onChange={e => setEmail(e.target.value)}
-                            placeholder="afern@oregonstate.edu"
+                            placeholder="alan.fern@oregonstate.edu"
                             className="w-full px-3 py-2.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent placeholder:text-slate-400"
                         />
                     </div>
 
-                    {/* OSU URL */}
-                    <div>
-                        <label className="block text-xs font-semibold text-slate-600 mb-1">
-                            OSU Profile URL <span className="text-red-500">*</span>
-                        </label>
-                        <input
-                            type="url"
-                            value={osuUrl}
-                            onChange={e => setOsuUrl(e.target.value)}
-                            placeholder="https://engineering.oregonstate.edu/people/afern"
-                            className="w-full px-3 py-2.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent placeholder:text-slate-400"
-                        />
-                    </div>
 
-                    {/* CV Upload */}
-                    <div>
-                        <label className="block text-xs font-semibold text-slate-600 mb-1">
-                            CV / Resume <span className="text-slate-400 font-normal">(optional · PDF only)</span>
-                        </label>
-                        <input
-                            type="file"
-                            ref={fileInputRef}
-                            onChange={handleFileChange}
-                            accept="application/pdf"
-                            className="hidden"
-                        />
-                        {cvFile ? (
-                            <div className="flex items-center gap-2 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg">
-                                <div className="bg-red-500 rounded p-1 text-white flex-shrink-0">
-                                    <FileText className="w-3 h-3" />
-                                </div>
-                                <span className="text-xs text-slate-700 truncate flex-1">{cvFile.name}</span>
-                                <button onClick={() => setCvFile(null)} className="text-slate-400 hover:text-red-500 transition-colors">
-                                    <X className="w-3.5 h-3.5" />
-                                </button>
-                            </div>
-                        ) : (
-                            <button
-                                onClick={() => fileInputRef.current?.click()}
-                                className="flex items-center gap-2 px-3 py-2 text-sm text-slate-500 border border-dashed border-slate-300 rounded-lg hover:border-green-400 hover:text-green-600 transition-colors w-full"
-                            >
-                                <Paperclip className="w-4 h-4" />
-                                Attach PDF
-                            </button>
-                        )}
-                    </div>
+
+
 
                     {/* Optional message */}
                     <div>

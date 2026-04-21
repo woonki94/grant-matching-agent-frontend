@@ -1,18 +1,19 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import {
     ArrowLeft, User, Search, ExternalLink, BookOpen, Tag, Globe,
     Pencil, X, Plus, Trash2, Save, Lock, Check, UserPlus, Code2,
 } from 'lucide-react';
 import { fetchFacultyByEmail, patchFacultySource, patchFacultyKeywords, createFaculty, createFacultyFromJson } from '../lib/api';
 import { FacultyInputRow } from '../components/FacultyInputRow';
+import { MissingFacultyModal } from '../components/MissingFacultyModal';
 import type {
     FacultyProfile, FacultyKeywords, FacultyInput,
     KeywordUpdateMode,
 } from '../types';
 
-function makeFaculty(): FacultyInput {
-    return { id: `${Date.now()}-${Math.random()}`, email: '', osuUrl: '', cvFile: undefined };
+function makeFaculty(email = '', osuUrl = ''): FacultyInput {
+    return { id: `${Date.now()}-${Math.random()}`, email, osuUrl, cvFile: undefined };
 }
 
 // ── Inline helper components ──────────────────────────────────────────────────
@@ -226,8 +227,10 @@ const KeywordSectionEditable: React.FC<{
 export const FacultyProfilePage: React.FC = () => {
     const navigate = useNavigate();
 
+    const location = useLocation();
+
     // ── tab state
-    const [activeTab, setActiveTab] = useState<'lookup' | 'new'>('lookup');
+    const [activeTab, setActiveTab] = useState<'lookup' | 'new'>(location.state?.tab || 'lookup');
 
     // ── lookup state
     const [email, setEmail] = useState('');
@@ -263,11 +266,32 @@ export const FacultyProfilePage: React.FC = () => {
     const [draftApplication, setDraftApplication] = useState<FacultyKeywords>({ domain: [], specialization: [] });
 
     // ── new faculty state
-    const [newFaculty, setNewFaculty] = useState<FacultyInput[]>([makeFaculty()]);
+    const [newFaculty, setNewFaculty] = useState<FacultyInput[]>(() => {
+        const prefillEmails = location.state?.prefillEmails;
+        if (Array.isArray(prefillEmails) && prefillEmails.length > 0) {
+            return prefillEmails.map((email: string) => makeFaculty(email));
+        }
+        return [makeFaculty()];
+    });
     const [newFacultyInputMode, setNewFacultyInputMode] = useState<'form' | 'json'>('form');
     const [jsonInput, setJsonInput] = useState('');
     const [newFacultyLoading, setNewFacultyLoading] = useState(false);
     const [newFacultyBanner, setNewFacultyBanner] = useState<{ msg: string; mode: 'success' | 'error' } | null>(null);
+
+    // ── missing emails state for modal
+    const [missingEmails, setMissingEmails] = useState<string[]>([]);
+
+    useEffect(() => {
+        if (location.state?.tab === 'new') {
+            setActiveTab('new');
+        }
+        if (Array.isArray(location.state?.prefillEmails) && location.state.prefillEmails.length > 0) {
+            setNewFaculty(location.state.prefillEmails.map((e: string) => makeFaculty(e)));
+            
+            // Clear router state so we don't accidentally get stuck overwriting it if user edits
+            navigate('.', { replace: true, state: {} });
+        }
+    }, [location.state, navigate]);
 
     // ── lookup ────────────────────────────────────────────────────────────────
 
@@ -280,7 +304,12 @@ export const FacultyProfilePage: React.FC = () => {
             const result = await fetchFacultyByEmail(trimmed);
             setFaculty(result);
         } catch (err: any) {
-            setError(err.message || 'Something went wrong.');
+            const msg = err.message || 'Something went wrong.';
+            if (msg.toLowerCase().includes('not found')) {
+                setMissingEmails([trimmed]);
+            } else {
+                setError(msg);
+            }
         } finally { setIsLoading(false); }
     };
 
@@ -485,6 +514,7 @@ export const FacultyProfilePage: React.FC = () => {
             } else {
                 const valid = newFaculty.filter(f => f.email.trim());
                 if (valid.length === 0) { setNewFacultyBanner({ msg: 'At least one email is required.', mode: 'error' }); return; }
+                if (valid.some(f => !f.osuUrl.trim())) { setNewFacultyBanner({ msg: 'OSU Profile URL is required for all faculty.', mode: 'error' }); return; }
                 const resp = await createFaculty(valid.map(f => ({ email: f.email, osuUrl: f.osuUrl, cvFile: f.cvFile })));
                 setNewFacultyBanner({ msg: resp.message || `${resp.created ?? valid.length} faculty created.`, mode: 'success' });
                 setNewFaculty([makeFaculty()]);
@@ -533,6 +563,12 @@ export const FacultyProfilePage: React.FC = () => {
 
     return (
         <div className="min-h-screen bg-slate-50">
+            <MissingFacultyModal 
+                isOpen={missingEmails.length > 0} 
+                missingEmails={missingEmails} 
+                onClose={() => setMissingEmails([])} 
+            />
+
             {/* Top Bar */}
             <header className="bg-white border-b border-slate-200 px-6 py-4 flex items-center gap-4">
                 <button onClick={() => navigate('/')} className="flex items-center gap-2 text-slate-500 hover:text-slate-800 transition-colors text-sm">
@@ -626,6 +662,9 @@ export const FacultyProfilePage: React.FC = () => {
                                         onChange={updated => updateNewFaculty(idx, updated)}
                                         onRemove={() => removeNewFaculty(idx)}
                                         canRemove={newFaculty.length > 1}
+                                        showOsuUrl={true}
+                                        showCv={true}
+                                        showHelper={true}
                                     />
                                 ))}
 
@@ -656,7 +695,7 @@ export const FacultyProfilePage: React.FC = () => {
                                     <textarea
                                         value={jsonInput}
                                         onChange={e => setJsonInput(e.target.value)}
-                                        placeholder={`[\n  {\n    "email": "afern@oregonstate.edu",\n    "osu_url": "https://engineering.oregonstate.edu/people/afern"\n  },\n  {\n    "email": "another@oregonstate.edu",\n    "osu_url": "https://..."\n  }\n]`}
+                                        placeholder={`[\n  {\n    "email": "alan.fern@oregonstate.edu",\n    "osu_url": "https://engineering.oregonstate.edu/people/alan.fern"\n  },\n  {\n    "email": "another@oregonstate.edu",\n    "osu_url": "https://..."\n  }\n]`}
                                         rows={12}
                                         className="w-full px-3 py-2.5 text-sm font-mono border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent placeholder:text-slate-400 resize-none bg-slate-50"
                                     />

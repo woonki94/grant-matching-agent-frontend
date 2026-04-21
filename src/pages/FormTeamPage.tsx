@@ -4,6 +4,7 @@ import { ArrowLeft, Lightbulb, Plus, ChevronDown, ChevronUp, Star, ExternalLink 
 import { streamFormTeam } from '../lib/api';
 import { FacultyInputRow } from '../components/FacultyInputRow';
 import { ThinkingIndicator } from '../components/ThinkingIndicator';
+import { MissingFacultyModal } from '../components/MissingFacultyModal';
 import type { FacultyInput, FacultySuggestion, StreamEvent, GroupJustification } from '../types';
 
 function makeFaculty(): FacultyInput {
@@ -276,8 +277,9 @@ export const FormTeamPage: React.FC = () => {
     const [isLoading,         setIsLoading]         = useState(false);
     const [thinkingLogs,      setThinkingLogs]      = useState<string[]>([]);
     const [team,              setTeam]              = useState<FacultySuggestion[]>([]);
-    const [groupJustification,setGroupJustification]= useState<GroupJustification | null>(null);
-    const [infoMessage,       setInfoMessage]       = useState<string | null>(null);
+    const [groupJustification, setGroupJustification] = useState<GroupJustification | null>(null);
+    const [missingEmails, setMissingEmails]   = useState<string[]>([]);
+    const [infoMessage, setInfoMessage]       = useState<string | null>(null);
     const [error,             setError]             = useState<string | null>(null);
     const [submitted,         setSubmitted]         = useState(false);
     const [oppId,             setOppId]             = useState<string>('');
@@ -300,7 +302,7 @@ export const FormTeamPage: React.FC = () => {
             return 'Team size must be between 1 and 20.';
         for (let i = 0; i < faculty.length; i++) {
             if (!faculty[i].email.trim())  return `Email is required for member ${i + 1}.`;
-            if (!faculty[i].osuUrl.trim()) return `OSU Profile URL is required for member ${i + 1}.`;
+
         }
         return null;
     };
@@ -308,8 +310,9 @@ export const FormTeamPage: React.FC = () => {
     const handleSubmit = () => {
         const err = validate();
         if (err) { setError(err); return; }
-        setError(null); setInfoMessage(null); setTeam([]); setGroupJustification(null);
-        setOppId(''); setOppTitle(null); setElapsedSeconds(null);
+        setError(null); setInfoMessage(null); setTeam([]);        setGroupJustification(null);
+        setMissingEmails([]);
+        setThinkingLogs([]); setOppTitle(null); setElapsedSeconds(null);
         setThinkingLogs([]); setIsLoading(true); setSubmitted(true);
         if (abortRef.current) abortRef.current();
 
@@ -326,11 +329,16 @@ export const FormTeamPage: React.FC = () => {
                     setThinkingLogs(prev => [...prev, event.payload.message]);
                 } else if (event.type === 'request_info') {
                     setIsLoading(false);
+                    if (event.payload.type === 'email_not_in_db' || event.payload.type === 'emails_not_in_db') {
+                        setMissingEmails(event.payload.emails_missing_in_db || []);
+                        return;
+                    }
                     setInfoMessage(event.payload.message);
                 } else if (event.type === 'message') {
                     setIsLoading(false);
                     if (event.payload.type === 'error') {
                         setError(event.payload.message);
+
                     } else if (event.payload.formTeamResult) {
                         const res = event.payload.formTeamResult;
                         setTeam(res.suggested_team);
@@ -354,6 +362,12 @@ export const FormTeamPage: React.FC = () => {
 
     return (
         <div className="min-h-screen bg-slate-50">
+            <MissingFacultyModal 
+                isOpen={missingEmails.length > 0} 
+                missingEmails={missingEmails} 
+                onClose={() => setMissingEmails([])} 
+            />
+
             <header className="bg-white border-b border-slate-200 px-6 py-4 flex items-center gap-4">
                 <button
                     onClick={() => navigate('/team-builder')}
