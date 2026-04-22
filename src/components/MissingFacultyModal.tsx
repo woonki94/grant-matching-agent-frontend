@@ -1,5 +1,5 @@
 import React from 'react';
-import { UserPlus, AlertCircle, X } from 'lucide-react';
+import { UserPlus, AlertCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 interface MissingFacultyModalProps {
