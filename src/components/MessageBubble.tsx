@@ -12,6 +12,17 @@ function cn(...inputs: ClassValue[]) {
     return twMerge(clsx(inputs));
 }
 
+// Renders text with **bold** markers as highlighted <strong> spans
+function renderHighlighted(text: string): React.ReactNode {
+    if (!text) return null;
+    const parts = text.split(/(\*\*[^*]+\*\*)/g);
+    return parts.map((part, i) =>
+        part.startsWith('**') && part.endsWith('**')
+            ? <strong key={i} className="font-semibold text-slate-900">{part.slice(2, -2)}</strong>
+            : part
+    );
+}
+
 // Collapsible group match card
 const GroupMatchCard: React.FC<{ match: GroupMatchResult }> = ({ match }) => {
     const [expanded, setExpanded] = useState(false);
@@ -251,18 +262,29 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message }) => {
                                     </span>
                                 </div>
 
+                                {result.grant_brief && (
+                                    <p className="mt-2 text-xs text-slate-500 italic leading-relaxed border-l-2 border-blue-200 pl-2">
+                                        {result.grant_brief}
+                                    </p>
+                                )}
+
                                 {result.why_match && (
-                                    <div className="mt-2 space-y-3">
-                                        <div className="text-xs text-slate-700 leading-relaxed font-medium">
-                                            {result.why_match.summary}
-                                        </div>
+                                    <div className="mt-2 space-y-2">
+                                        {result.why_match.summary && (
+                                            <p className="text-xs text-slate-700 leading-relaxed">
+                                                {renderHighlighted(result.why_match.summary)}
+                                            </p>
+                                        )}
 
                                         {result.why_match.alignment_points && result.why_match.alignment_points.length > 0 && (
                                             <div>
-                                                <div className="text-xs font-semibold text-green-700 mb-1">✅ Alignment Points:</div>
-                                                <ul className="text-xs text-slate-600 space-y-1 list-disc list-inside">
+                                                <div className="text-xs font-semibold text-green-700 mb-1">✅ Why it fits:</div>
+                                                <ul className="text-xs text-slate-600 space-y-1 list-none">
                                                     {result.why_match.alignment_points.map((point, idx) => (
-                                                        <li key={idx} className="leading-relaxed">{point}</li>
+                                                        <li key={idx} className="flex items-start gap-2">
+                                                            <span className="text-[2rem] leading-none text-green-500 flex-shrink-0 mt-[-0.25rem] select-none">•</span>
+                                                            <span className="leading-relaxed">{renderHighlighted(point)}</span>
+                                                        </li>
                                                     ))}
                                                 </ul>
                                             </div>
@@ -270,10 +292,13 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message }) => {
 
                                         {result.why_match.risk_gaps && result.why_match.risk_gaps.length > 0 && (
                                             <div>
-                                                <div className="text-xs font-semibold text-yellow-700 mb-1">⚠️ Risk Gaps:</div>
-                                                <ul className="text-xs text-slate-600 space-y-1 list-disc list-inside">
+                                                <div className="text-xs font-semibold text-amber-700 mb-1">⚠️ Gaps to address:</div>
+                                                <ul className="text-xs text-slate-600 space-y-1 list-none">
                                                     {result.why_match.risk_gaps.map((risk, idx) => (
-                                                        <li key={idx} className="leading-relaxed">{risk}</li>
+                                                        <li key={idx} className="flex items-start gap-2">
+                                                            <span className="text-[2rem] leading-none text-amber-500 flex-shrink-0 mt-[-0.25rem] select-none">•</span>
+                                                            <span className="leading-relaxed">{renderHighlighted(risk)}</span>
+                                                        </li>
                                                     ))}
                                                 </ul>
                                             </div>

@@ -8,6 +8,16 @@ import { MissingFacultyModal } from '../components/MissingFacultyModal';
 import { formatGrantContent } from '../lib/formatEmail';
 import type { Grant, StreamEvent } from '../types';
 
+function renderHighlighted(text: string): React.ReactNode {
+    if (!text) return null;
+    const parts = text.split(/(\*\*[^*]+\*\*)/g);
+    return parts.map((part, i) =>
+        part.startsWith('**') && part.endsWith('**')
+            ? <strong key={i} className="font-semibold text-slate-900">{part.slice(2, -2)}</strong>
+            : part
+    );
+}
+
 export const FindGrantPage: React.FC = () => {
     const navigate = useNavigate();
     const threadId = useRef(`thread-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`);
@@ -227,31 +237,29 @@ export const FindGrantPage: React.FC = () => {
                                             </span>
                                         </div>
 
-                                        {result.grant_explanation && (
-                                            <p className="text-xs text-slate-600 leading-relaxed">{result.grant_explanation}</p>
-                                        )}
-
-                                        {result.justification && (
-                                            <div className="space-y-1.5">
-                                                <p className="text-xs font-semibold text-teal-700">Why this matches your profile</p>
-                                                <p className="text-xs text-slate-600 leading-relaxed whitespace-pre-line">
-                                                    {result.justification}
-                                                </p>
-                                            </div>
+                                        {result.grant_brief && (
+                                            <p className="text-xs text-slate-500 italic leading-relaxed border-l-2 border-blue-200 pl-2">
+                                                {result.grant_brief}
+                                            </p>
                                         )}
 
                                         {result.why_match && (
-                                            <div className="space-y-3">
-                                                <p className="text-xs text-slate-700 leading-relaxed font-medium">
-                                                    {result.why_match.summary}
-                                                </p>
+                                            <div className="space-y-2">
+                                                {result.why_match.summary && (
+                                                    <p className="text-xs text-slate-700 leading-relaxed">
+                                                        {renderHighlighted(result.why_match.summary)}
+                                                    </p>
+                                                )}
 
                                                 {result.why_match.alignment_points && result.why_match.alignment_points.length > 0 && (
                                                     <div>
-                                                        <p className="text-xs font-semibold text-green-700 mb-1">✅ Alignment Points:</p>
-                                                        <ul className="text-xs text-slate-600 space-y-1 list-disc list-inside">
+                                                        <p className="text-xs font-semibold text-green-700 mb-1">✅ Why it fits:</p>
+                                                        <ul className="text-xs text-slate-600 space-y-1 list-none">
                                                             {result.why_match.alignment_points.map((point, i) => (
-                                                                <li key={i} className="leading-relaxed">{point}</li>
+                                                                <li key={i} className="flex items-start gap-2">
+                                                                    <span className="text-[2rem] leading-none text-green-500 flex-shrink-0 mt-[-0.25rem] select-none">•</span>
+                                                                    <span className="leading-relaxed">{renderHighlighted(point)}</span>
+                                                                </li>
                                                             ))}
                                                         </ul>
                                                     </div>
@@ -259,10 +267,13 @@ export const FindGrantPage: React.FC = () => {
 
                                                 {result.why_match.risk_gaps && result.why_match.risk_gaps.length > 0 && (
                                                     <div>
-                                                        <p className="text-xs font-semibold text-yellow-700 mb-1">⚠️ Risk Gaps:</p>
-                                                        <ul className="text-xs text-slate-600 space-y-1 list-disc list-inside">
+                                                        <p className="text-xs font-semibold text-amber-700 mb-1">⚠️ Gaps to address:</p>
+                                                        <ul className="text-xs text-slate-600 space-y-1 list-none">
                                                             {result.why_match.risk_gaps.map((risk, i) => (
-                                                                <li key={i} className="leading-relaxed">{risk}</li>
+                                                                <li key={i} className="flex items-start gap-2">
+                                                                    <span className="text-[2rem] leading-none text-amber-500 flex-shrink-0 mt-[-0.25rem] select-none">•</span>
+                                                                    <span className="leading-relaxed">{renderHighlighted(risk)}</span>
+                                                                </li>
                                                             ))}
                                                         </ul>
                                                     </div>
