@@ -262,6 +262,12 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message }) => {
                                     </span>
                                 </div>
 
+                                {result.grant_brief && (
+                                    <p className="mt-2 text-xs text-slate-500 italic leading-relaxed border-l-2 border-blue-200 pl-2">
+                                        {result.grant_brief}
+                                    </p>
+                                )}
+
                                 {result.why_match && (
                                     <div className="mt-2 space-y-2">
                                         {result.why_match.summary && (

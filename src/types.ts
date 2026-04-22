@@ -11,6 +11,7 @@ export interface Grant {
     title: string;
     agency: string;
     grant_explanation?: string;
+    grant_brief?: string;
     justification?: string;
     score: number;
     llm_score?: number;
