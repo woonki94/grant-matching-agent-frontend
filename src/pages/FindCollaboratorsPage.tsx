@@ -248,10 +248,6 @@ const CollaboratorCard: React.FC<{ faculty: FacultySuggestion; rank: number }> =
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
-function makeFaculty(email = '', osuUrl = ''): FacultyInput {
-    return { id: `${Date.now()}-${Math.random()}`, email, osuUrl, cvFile: undefined };
-}
-
 export const FindCollaboratorsPage: React.FC = () => {
     const navigate = useNavigate();
     const location = useLocation();
