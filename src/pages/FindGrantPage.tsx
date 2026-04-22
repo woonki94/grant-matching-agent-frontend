@@ -256,7 +256,7 @@ export const FindGrantPage: React.FC = () => {
                                                         <p className="text-xs font-semibold text-green-700 mb-1">✅ Why it fits:</p>
                                                         <ul className="text-xs text-slate-600 space-y-1 list-none pl-3">
                                                             {result.why_match.alignment_points.map((point, i) => (
-                                                                <li key={i} className="leading-relaxed before:content-['•'] before:mr-1.5 before:text-green-500">
+                                                                <li key={i} className="leading-relaxed before:content-['•'] before:mr-1.5 before:text-base before:text-green-500">
                                                                     {renderHighlighted(point)}
                                                                 </li>
                                                             ))}
@@ -269,7 +269,7 @@ export const FindGrantPage: React.FC = () => {
                                                         <p className="text-xs font-semibold text-amber-700 mb-1">⚠️ Gaps to address:</p>
                                                         <ul className="text-xs text-slate-600 space-y-1 list-none pl-3">
                                                             {result.why_match.risk_gaps.map((risk, i) => (
-                                                                <li key={i} className="leading-relaxed before:content-['•'] before:mr-1.5 before:text-amber-500">
+                                                                <li key={i} className="leading-relaxed before:content-['•'] before:mr-1.5 before:text-base before:text-amber-500">
                                                                     {renderHighlighted(risk)}
                                                                 </li>
                                                             ))}

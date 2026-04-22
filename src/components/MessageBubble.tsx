@@ -281,7 +281,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message }) => {
                                                 <div className="text-xs font-semibold text-green-700 mb-1">✅ Why it fits:</div>
                                                 <ul className="text-xs text-slate-600 space-y-1 list-none pl-3">
                                                     {result.why_match.alignment_points.map((point, idx) => (
-                                                        <li key={idx} className="leading-relaxed before:content-['•'] before:mr-1.5 before:text-green-500">
+                                                        <li key={idx} className="leading-relaxed before:content-['•'] before:mr-1.5 before:text-base before:text-green-500">
                                                             {renderHighlighted(point)}
                                                         </li>
                                                     ))}
@@ -294,7 +294,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message }) => {
                                                 <div className="text-xs font-semibold text-amber-700 mb-1">⚠️ Gaps to address:</div>
                                                 <ul className="text-xs text-slate-600 space-y-1 list-none pl-3">
                                                     {result.why_match.risk_gaps.map((risk, idx) => (
-                                                        <li key={idx} className="leading-relaxed before:content-['•'] before:mr-1.5 before:text-amber-500">
+                                                        <li key={idx} className="leading-relaxed before:content-['•'] before:mr-1.5 before:text-base before:text-amber-500">
                                                             {renderHighlighted(risk)}
                                                         </li>
                                                     ))}
