@@ -16,6 +16,16 @@ export function formatGrantContent(result: Grant): string {
         : `${(result.score * 100).toFixed(0)}% match`;
     lines.push(`Score: ${score}`);
 
+    if (result.grant_explanation) {
+        lines.push('');
+        lines.push(`Grant Explanation: ${result.grant_explanation}`);
+    }
+
+    if (result.justification) {
+        lines.push('');
+        lines.push(`Justification: ${result.justification}`);
+    }
+
     if (result.why_match) {
         lines.push('');
         lines.push(stripBold(result.why_match.summary));

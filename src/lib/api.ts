@@ -9,6 +9,8 @@ export interface SingleFacultyParams {
     cvFile?: File;
     message: string;
     threadId: string;
+    grantLink?: string;
+    grantTitle?: string;
 }
 
 export interface GroupParams {
@@ -16,6 +18,8 @@ export interface GroupParams {
     faculty: FacultyInput[];
     message: string;
     threadId: string;
+    grantLink?: string;
+    grantTitle?: string;
 }
 
 export type ChatParams = SingleFacultyParams | GroupParams;
@@ -24,6 +28,8 @@ function buildFormData(params: ChatParams): FormData {
     const fd = new FormData();
     fd.append('message', params.message);
     fd.append('thread_id', params.threadId);
+    if (params.grantLink) fd.append('grant_link', params.grantLink);
+    if (params.grantTitle) fd.append('grant_title', params.grantTitle);
 
     if (params.mode === 'single') {
         fd.append('email', params.email);

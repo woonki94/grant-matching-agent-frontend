@@ -5,6 +5,7 @@ import { streamChat } from '../lib/api';
 import { ThinkingIndicator } from '../components/ThinkingIndicator';
 import { SendEmailButton } from '../components/SendEmailButton';
 import { MissingFacultyModal } from '../components/MissingFacultyModal';
+import { GrantHelperPanel } from '../components/GrantHelperPanel';
 import { formatGrantContent } from '../lib/formatEmail';
 import type { Grant, StreamEvent } from '../types';
 
@@ -23,6 +24,8 @@ export const FindGrantPage: React.FC = () => {
     const threadId = useRef(`thread-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`);
     const abortRef = useRef<(() => void) | null>(null);
     const [email, setEmail] = useState('');
+    const [grantLink, setGrantLink] = useState('');
+    const [grantTitle, setGrantTitle] = useState('');
     const [message, setMessage] = useState('');
 
     const [isLoading, setIsLoading] = useState(false);
@@ -61,6 +64,8 @@ export const FindGrantPage: React.FC = () => {
                 osuUrl: '',
                 message: message.trim() || 'Find the best matching grants for my research profile.',
                 threadId: threadId.current,
+                grantLink: grantLink.trim() || undefined,
+                grantTitle: grantTitle.trim() || undefined,
             },
             (event: StreamEvent) => {
                 if (event.type === 'step_update') {
@@ -126,18 +131,62 @@ export const FindGrantPage: React.FC = () => {
                     <h2 className="text-sm font-semibold text-slate-700 uppercase tracking-wide">Your Details</h2>
 
                     {/* Email */}
+                    <div className="space-y-4">
+                        <div>
+                            <label className="block text-xs font-semibold text-slate-600 mb-1">
+                                Faculty Email <span className="text-red-500">*</span>
+                            </label>
+                            <input
+                                type="email"
+                                value={email}
+                                onChange={e => setEmail(e.target.value)}
+                                placeholder="alan.fern@oregonstate.edu"
+                                className="w-full px-3 py-2.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent placeholder:text-slate-400"
+                            />
+                        </div>
+                    </div>
+                </div>
+
+                {/* Specific Grant Card */}
+                <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-4">
+                    <h2 className="text-sm font-semibold text-slate-700 uppercase tracking-wide">
+                        Specific Grant <span className="text-slate-400 font-normal normal-case">(optional)</span>
+                    </h2>
+
                     <div>
                         <label className="block text-xs font-semibold text-slate-600 mb-1">
-                            Email <span className="text-red-500">*</span>
+                            Grant URL <span className="text-slate-400 font-normal">(simpler.grants.gov)</span>
                         </label>
                         <input
-                            type="email"
-                            value={email}
-                            onChange={e => setEmail(e.target.value)}
-                            placeholder="alan.fern@oregonstate.edu"
+                            type="url"
+                            value={grantLink}
+                            onChange={e => setGrantLink(e.target.value)}
+                            placeholder="https://simpler.grants.gov/opportunity/12345"
                             className="w-full px-3 py-2.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent placeholder:text-slate-400"
                         />
                     </div>
+
+                    <div className="flex items-center gap-3">
+                        <div className="flex-1 h-px bg-slate-200" />
+                        <span className="text-xs text-slate-400 font-semibold">OR</span>
+                        <div className="flex-1 h-px bg-slate-200" />
+                    </div>
+
+                    <div>
+                        <label className="block text-xs font-semibold text-slate-600 mb-1">Grant Title</label>
+                        <input
+                            type="text"
+                            value={grantTitle}
+                            onChange={e => setGrantTitle(e.target.value)}
+                            placeholder="NSF Program on Quantum Computing 2026"
+                            className="w-full px-3 py-2.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent placeholder:text-slate-400"
+                        />
+                        <GrantHelperPanel hideKeyword defaultOpen={false} />
+                    </div>
+                </div>
+
+                {/* Additional Context & Submit Card */}
+                <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-4">
 
 
 
