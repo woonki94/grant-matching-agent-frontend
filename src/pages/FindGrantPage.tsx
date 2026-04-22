@@ -254,10 +254,11 @@ export const FindGrantPage: React.FC = () => {
                                                 {result.why_match.alignment_points && result.why_match.alignment_points.length > 0 && (
                                                     <div>
                                                         <p className="text-xs font-semibold text-green-700 mb-1">✅ Why it fits:</p>
-                                                        <ul className="text-xs text-slate-600 space-y-1 list-none pl-3">
+                                                        <ul className="text-xs text-slate-600 space-y-1 list-none">
                                                             {result.why_match.alignment_points.map((point, i) => (
-                                                                <li key={i} className="leading-relaxed before:content-['•'] before:mr-1.5 before:text-[2rem] before:leading-none before:text-green-500">
-                                                                    {renderHighlighted(point)}
+                                                                <li key={i} className="flex items-start gap-2">
+                                                                    <span className="text-[2rem] leading-none text-green-500 flex-shrink-0 mt-[-0.25rem] select-none">•</span>
+                                                                    <span className="leading-relaxed">{renderHighlighted(point)}</span>
                                                                 </li>
                                                             ))}
                                                         </ul>
@@ -267,10 +268,11 @@ export const FindGrantPage: React.FC = () => {
                                                 {result.why_match.risk_gaps && result.why_match.risk_gaps.length > 0 && (
                                                     <div>
                                                         <p className="text-xs font-semibold text-amber-700 mb-1">⚠️ Gaps to address:</p>
-                                                        <ul className="text-xs text-slate-600 space-y-1 list-none pl-3">
+                                                        <ul className="text-xs text-slate-600 space-y-1 list-none">
                                                             {result.why_match.risk_gaps.map((risk, i) => (
-                                                                <li key={i} className="leading-relaxed before:content-['•'] before:mr-1.5 before:text-[2rem] before:leading-none before:text-amber-500">
-                                                                    {renderHighlighted(risk)}
+                                                                <li key={i} className="flex items-start gap-2">
+                                                                    <span className="text-[2rem] leading-none text-amber-500 flex-shrink-0 mt-[-0.25rem] select-none">•</span>
+                                                                    <span className="leading-relaxed">{renderHighlighted(risk)}</span>
                                                                 </li>
                                                             ))}
                                                         </ul>
