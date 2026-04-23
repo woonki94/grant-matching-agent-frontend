@@ -299,7 +299,7 @@ export const FacultyProfilePage: React.FC = () => {
         }
         if (Array.isArray(location.state?.prefillEmails) && location.state.prefillEmails.length > 0) {
             setNewFaculty(location.state.prefillEmails.map((e: string) => makeFaculty(e)));
-            
+
             // Clear router state so we don't accidentally get stuck overwriting it if user edits
             navigate('.', { replace: true, state: {} });
         }
@@ -320,7 +320,7 @@ export const FacultyProfilePage: React.FC = () => {
         } catch (err: any) {
             const msg = err.message || 'Something went wrong.';
             if (msg.toLowerCase().includes('not found')) {
-                setMissingEmails([trimmed]);
+                setMissingEmails([targetEmail]);
             } else {
                 setError(msg);
             }
@@ -584,10 +584,10 @@ export const FacultyProfilePage: React.FC = () => {
 
     return (
         <div className="min-h-screen bg-slate-50">
-            <MissingFacultyModal 
-                isOpen={missingEmails.length > 0} 
-                missingEmails={missingEmails} 
-                onClose={() => setMissingEmails([])} 
+            <MissingFacultyModal
+                isOpen={missingEmails.length > 0}
+                missingEmails={missingEmails}
+                onClose={() => setMissingEmails([])}
             />
 
             {/* Top Bar */}
@@ -607,11 +607,10 @@ export const FacultyProfilePage: React.FC = () => {
                 <div className="flex gap-1 bg-slate-100 rounded-xl p-1">
                     <button
                         onClick={() => setActiveTab('lookup')}
-                        className={`flex-1 flex items-center justify-center gap-2 py-2.5 text-sm font-semibold rounded-lg transition-all duration-200 ${
-                        activeTab === 'lookup'
+                        className={`flex-1 flex items-center justify-center gap-2 py-2.5 text-sm font-semibold rounded-lg transition-all duration-200 ${activeTab === 'lookup'
                             ? 'bg-white text-teal-700 shadow-sm'
                             : 'text-slate-500 hover:text-slate-700'
-                        }`}
+                            }`}
                     >
                         <Search className="w-4 h-4" />
                         {isAdmin ? 'Look Up' : 'My Profile'}
@@ -619,18 +618,17 @@ export const FacultyProfilePage: React.FC = () => {
 
                     {isAdmin && (
                         <button
-                        onClick={() => setActiveTab('new')}
-                        className={`flex-1 flex items-center justify-center gap-2 py-2.5 text-sm font-semibold rounded-lg transition-all duration-200 ${
-                            activeTab === 'new'
-                            ? 'bg-white text-teal-700 shadow-sm'
-                            : 'text-slate-500 hover:text-slate-700'
-                        }`}
+                            onClick={() => setActiveTab('new')}
+                            className={`flex-1 flex items-center justify-center gap-2 py-2.5 text-sm font-semibold rounded-lg transition-all duration-200 ${activeTab === 'new'
+                                ? 'bg-white text-teal-700 shadow-sm'
+                                : 'text-slate-500 hover:text-slate-700'
+                                }`}
                         >
-                        <UserPlus className="w-4 h-4" />
-                        New Faculty
+                            <UserPlus className="w-4 h-4" />
+                            New Faculty
                         </button>
                     )}
-                    </div>
+                </div>
 
                 {/* ══════════════════════════════════════════════════════════════ */}
                 {/* ── NEW FACULTY TAB ── */}
@@ -758,18 +756,17 @@ export const FacultyProfilePage: React.FC = () => {
                                 }}
                                 disabled={!isAdmin}
                                 placeholder={isAdmin ? "alan.fern@oregonstate.edu" : storedUserEmail}
-                                className={`w-full px-3 py-2.5 text-sm rounded-lg ${
-                                    isAdmin
-                                        ? "border border-slate-300 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent placeholder:text-slate-400"
-                                        : "border border-slate-200 bg-slate-100 text-slate-500 cursor-not-allowed"
-                                }`}
+                                className={`w-full px-3 py-2.5 text-sm rounded-lg ${isAdmin
+                                    ? "border border-slate-300 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent placeholder:text-slate-400"
+                                    : "border border-slate-200 bg-slate-100 text-slate-500 cursor-not-allowed"
+                                    }`}
                             />
                         </div>
                         {error && !faculty && (
                             <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{error}</p>
                         )}
-                        <button 
-                            onClick={() => handleLookup()} 
+                        <button
+                            onClick={() => handleLookup()}
                             disabled={isLoading}
                             className="w-full flex items-center justify-center gap-2 py-3 bg-teal-600 hover:bg-teal-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-semibold rounded-xl transition-colors"
                         >
@@ -868,59 +865,59 @@ export const FacultyProfilePage: React.FC = () => {
 
                             {/* ── Publications ── */}
                             <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-6 space-y-4">
-                                    <SectionHeader
-                                        icon={<BookOpen className="w-4 h-4 text-slate-500" />}
-                                        label="Publications"
-                                        count={Object.values(pubsByYear).flat().length}
-                                        editing={editingPubs} saving={saving}
-                                        onEdit={startEditPubs} onCancel={cancelEditPubs} onSave={saveFetchYearRange}
-                                    />
+                                <SectionHeader
+                                    icon={<BookOpen className="w-4 h-4 text-slate-500" />}
+                                    label="Publications"
+                                    count={Object.values(pubsByYear).flat().length}
+                                    editing={editingPubs} saving={saving}
+                                    onEdit={startEditPubs} onCancel={cancelEditPubs} onSave={saveFetchYearRange}
+                                />
 
-                                    {editingPubs && (
-                                        <div className="bg-slate-50 rounded-lg border border-slate-200 px-4 py-3 space-y-2">
-                                            <label className="text-xs font-semibold text-slate-600">Fetch year range</label>
-                                            <div className="flex items-center gap-2">
-                                                <input type="number" value={draftYearFrom} onChange={e => setDraftYearFrom(e.target.value ? Number(e.target.value) : '')}
-                                                    placeholder="From" className="w-24 text-sm border border-slate-300 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-teal-500" />
-                                                <span className="text-xs text-slate-400">to</span>
-                                                <input type="number" value={draftYearTo} onChange={e => setDraftYearTo(e.target.value ? Number(e.target.value) : '')}
-                                                    placeholder="To" className="w-24 text-sm border border-slate-300 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-teal-500" />
-                                                <span className="text-xs text-slate-400">
-                                                    Current: {sortedYears.length > 0
-                                                        ? `${sortedYears[sortedYears.length - 1]}–${sortedYears[0]}`
-                                                        : '—'}
-                                                </span>
-                                            </div>
+                                {editingPubs && (
+                                    <div className="bg-slate-50 rounded-lg border border-slate-200 px-4 py-3 space-y-2">
+                                        <label className="text-xs font-semibold text-slate-600">Fetch year range</label>
+                                        <div className="flex items-center gap-2">
+                                            <input type="number" value={draftYearFrom} onChange={e => setDraftYearFrom(e.target.value ? Number(e.target.value) : '')}
+                                                placeholder="From" className="w-24 text-sm border border-slate-300 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-teal-500" />
+                                            <span className="text-xs text-slate-400">to</span>
+                                            <input type="number" value={draftYearTo} onChange={e => setDraftYearTo(e.target.value ? Number(e.target.value) : '')}
+                                                placeholder="To" className="w-24 text-sm border border-slate-300 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-teal-500" />
+                                            <span className="text-xs text-slate-400">
+                                                Current: {sortedYears.length > 0
+                                                    ? `${sortedYears[sortedYears.length - 1]}–${sortedYears[0]}`
+                                                    : '—'}
+                                            </span>
                                         </div>
-                                    )}
-
-                                    <div className="space-y-4 max-h-[420px] overflow-y-auto pr-1">
-                                        {sortedYears.length === 0 && !editingPubs && (
-                                            <p className="text-sm text-slate-500 italic py-2">No publications found.</p>
-                                        )}
-                                        {sortedYears.map(year => (
-                                            <div key={year}>
-                                                <p className="text-lg font-extrabold text-teal-700 mb-1.5">{year}</p>
-                                                <ul className="space-y-0 divide-y divide-slate-100">
-                                                    {pubsByYear[year].map(pub => (
-                                                        <li key={pub.id} className="flex items-start gap-2 group py-2">
-                                                            <span className="w-1.5 h-1.5 rounded-full bg-slate-300 flex-shrink-0 mt-1.5" />
-                                                            <span className="flex-1 text-sm text-slate-700 leading-relaxed">
-                                                                {pub.title}
-                                                            </span>
-                                                            {editingPubs && (
-                                                                <button onClick={() => deletePub(pub.id)} disabled={saving}
-                                                                    className="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-red-500 flex-shrink-0 mt-0.5 transition-opacity">
-                                                                    <Trash2 className="w-3.5 h-3.5" />
-                                                                </button>
-                                                            )}
-                                                        </li>
-                                                    ))}
-                                                </ul>
-                                            </div>
-                                        ))}
                                     </div>
+                                )}
+
+                                <div className="space-y-4 max-h-[420px] overflow-y-auto pr-1">
+                                    {sortedYears.length === 0 && !editingPubs && (
+                                        <p className="text-sm text-slate-500 italic py-2">No publications found.</p>
+                                    )}
+                                    {sortedYears.map(year => (
+                                        <div key={year}>
+                                            <p className="text-lg font-extrabold text-teal-700 mb-1.5">{year}</p>
+                                            <ul className="space-y-0 divide-y divide-slate-100">
+                                                {pubsByYear[year].map(pub => (
+                                                    <li key={pub.id} className="flex items-start gap-2 group py-2">
+                                                        <span className="w-1.5 h-1.5 rounded-full bg-slate-300 flex-shrink-0 mt-1.5" />
+                                                        <span className="flex-1 text-sm text-slate-700 leading-relaxed">
+                                                            {pub.title}
+                                                        </span>
+                                                        {editingPubs && (
+                                                            <button onClick={() => deletePub(pub.id)} disabled={saving}
+                                                                className="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-red-500 flex-shrink-0 mt-0.5 transition-opacity">
+                                                                <Trash2 className="w-3.5 h-3.5" />
+                                                            </button>
+                                                        )}
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        </div>
+                                    ))}
                                 </div>
+                            </div>
 
                             {/* ── Attached Files / Sources ── */}
                             <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-6 space-y-3">
