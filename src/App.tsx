@@ -7,17 +7,23 @@ import { FindCollaboratorsPage } from './pages/FindCollaboratorsPage';
 import { FormTeamPage } from './pages/FormTeamPage';
 import { FacultyProfilePage } from './pages/FacultyProfilePage';
 
+import LoginPage from './LoginPage';
+import SignupPage from './SignupPage';
+import AuthGuard from './AuthGuard';
+
 function App() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/" element={<LandingPage />} />
-        <Route path="/find-grant" element={<FindGrantPage />} />
-        <Route path="/team-builder" element={<TeamBuilderLandingPage />} />
-        <Route path="/team-builder/find-grants" element={<FindGrantsForTeamPage />} />
-        <Route path="/team-builder/find-collaborators" element={<FindCollaboratorsPage />} />
-        <Route path="/team-builder/form-team" element={<FormTeamPage />} />
-        <Route path="/faculty-profile" element={<FacultyProfilePage />} />
+        <Route path="/" element={<LoginPage />} />
+        <Route path="/signup" element={<AuthGuard> <SignupPage /> </AuthGuard>} />
+        <Route path="/landing" element={<AuthGuard> <LandingPage /> </AuthGuard>} />
+        <Route path="/find-grant" element={<AuthGuard> <FindGrantPage /> </AuthGuard>} />
+        <Route path="/team-builder" element={<AuthGuard> <TeamBuilderLandingPage /> </AuthGuard>} />
+        <Route path="/team-builder/find-grants" element={<AuthGuard> <FindGrantsForTeamPage /> </AuthGuard>} />
+        <Route path="/team-builder/find-collaborators" element={<AuthGuard> <FindCollaboratorsPage /> </AuthGuard>} />
+        <Route path="/team-builder/form-team" element={<AuthGuard> <FormTeamPage /> </AuthGuard>} />
+        <Route path="/faculty-profile" element={<AuthGuard> <FacultyProfilePage /> </AuthGuard>} />
       </Routes>
     </BrowserRouter>
   );

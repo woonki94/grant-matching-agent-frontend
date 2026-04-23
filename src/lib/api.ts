@@ -1,5 +1,16 @@
 import type { FacultyInput, StreamEvent, Grant, GroupMatchResult, CollaboratorsResult, FormTeamResult, FacultyProfile, FacultySourcePatch, FacultyKeywordsPatch, FacultyPatchResponse } from '../types';
 
+function getAuthHeaders(extraHeaders: Record<string, string> = {}) {
+  const userEmail = localStorage.getItem("userEmail") || "";
+  const role = localStorage.getItem("role") || "normal_user";
+
+  return {
+    "X-User-Email": userEmail,
+    "X-User-Role": role,
+    ...extraHeaders,
+  };
+}
+
 const API_URL = '/api/chat';
 
 export interface SingleFacultyParams {
@@ -287,18 +298,19 @@ export function streamChat(
 export async function fetchFacultyByEmail(email: string): Promise<FacultyProfile> {
     const response = await fetch('/api/faculty/by-email', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders({ 
+            'Content-Type': 'application/json' 
+        }),
         body: JSON.stringify({ email }),
     });
-    if (!response.ok) {
-        const text = await response.text();
-        throw new Error(text || `Server error ${response.status}`);
-    }
+
     const data = await response.json();
-    if (!data.ok || !data.faculty) {
-        throw new Error(data.message || 'Faculty not found.');
+
+    if (!response.ok || !data.ok) {
+        throw new Error(data.error || "Failed to fetch faculty profile");
     }
-    return data.faculty as FacultyProfile;
+
+    return data.faculty;
 }
 
 // ── Faculty PATCH helpers ─────────────────────────────────────────────────────
@@ -306,7 +318,9 @@ export async function fetchFacultyByEmail(email: string): Promise<FacultyProfile
 async function patchFaculty(body: FacultySourcePatch | FacultyKeywordsPatch): Promise<FacultyPatchResponse> {
     const response = await fetch('/api/faculty/by-email', {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders({ 
+            'Content-Type': 'application/json' 
+        }),
         body: JSON.stringify(body),
     });
     if (!response.ok) {
@@ -354,7 +368,11 @@ export async function createFaculty(
         fd.append('cv_file', e.cvFile!);
     }
 
-    const response = await fetch('/api/faculty/create', { method: 'POST', body: fd });
+    const response = await fetch('/api/faculty/create', {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: fd,
+        });
     if (!response.ok) {
         const text = await response.text();
         throw new Error(text || `Server error ${response.status}`);
@@ -368,7 +386,9 @@ export async function createFacultyFromJson(
 ): Promise<{ ok: boolean; message: string; created?: number }> {
     const response = await fetch('/api/faculty/create', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders({ 
+            'Content-Type': 'application/json' 
+        }),
         body: JSON.stringify(json),
     });
     if (!response.ok) {

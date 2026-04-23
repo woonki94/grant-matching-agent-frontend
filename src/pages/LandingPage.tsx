@@ -5,19 +5,28 @@ import { Search, Users, User } from 'lucide-react';
 export const LandingPage: React.FC = () => {
     const navigate = useNavigate();
 
+    const handleLogout = () => {
+        localStorage.clear();
+        navigate("/", { replace: true });
+    };
+
     return (
         <div className="min-h-screen bg-gradient-to-br from-slate-50 to-green-50 flex flex-col items-center justify-center px-4">
             {/* Header */}
-            <div className="text-center mb-14">
-                <div className="inline-flex items-center gap-2 bg-green-100 text-green-800 text-xs font-semibold px-3 py-1 rounded-full mb-5">
-                    Oregon State University · AI Grant Matching
+            <div className="w-full max-w-5xl flex justify-between items-start mb-14">
+    
+                {/* Center content */}
+                <div className="text-center flex-1">
+                    <div className="inline-flex items-center gap-2 bg-green-100 text-green-800 text-xs font-semibold px-3 py-1 rounded-full mb-5">
+                        Oregon State University · AI Grant Matching
+                    </div>
+                    <h1 className="text-5xl font-bold text-slate-900 tracking-tight mb-4">
+                        Grant<span className="text-green-600">Matcher</span>
+                    </h1>
+                    <p className="text-lg text-slate-500 max-w-md mx-auto leading-relaxed">
+                        AI-powered grant discovery tailored to your research profile and team expertise.
+                    </p>
                 </div>
-                <h1 className="text-5xl font-bold text-slate-900 tracking-tight mb-4">
-                    Grant<span className="text-green-600">Matcher</span>
-                </h1>
-                <p className="text-lg text-slate-500 max-w-md mx-auto leading-relaxed">
-                    AI-powered grant discovery tailored to your research profile and team expertise.
-                </p>
             </div>
 
             {/* Action Cards */}
@@ -77,6 +86,12 @@ export const LandingPage: React.FC = () => {
             <p className="mt-12 text-xs text-slate-400">
                 GrantMatcher may make mistakes. Always verify grant details independently.
             </p>
+            <button
+                onClick={handleLogout}
+                className="fixed bottom-6 right-6 px-5 py-3 bg-red-500 hover:bg-red-600 text-white rounded-full shadow-lg text-sm font-semibold transition-all duration-200"
+            >
+                Logout
+            </button>
         </div>
     );
 };

@@ -57,7 +57,7 @@ export const TeamBuilderLandingPage: React.FC = () => {
         <div className="min-h-screen bg-slate-50">
             <header className="bg-white border-b border-slate-200 px-6 py-4 flex items-center gap-4">
                 <button
-                    onClick={() => navigate('/')}
+                    onClick={() => navigate('/landing')}
                     className="flex items-center gap-2 text-slate-500 hover:text-slate-800 transition-colors text-sm"
                 >
                     <ArrowLeft className="w-4 h-4" />
