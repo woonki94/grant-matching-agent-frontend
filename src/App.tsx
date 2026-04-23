@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { LandingPage } from './pages/LandingPage';
 import { FindGrantPage } from './pages/FindGrantPage';
+
 import { TeamBuilderLandingPage } from './pages/TeamBuilderLandingPage';
 import { FindGrantsForTeamPage } from './pages/FindGrantsForTeamPage';
 import { FindCollaboratorsPage } from './pages/FindCollaboratorsPage';
@@ -16,7 +17,7 @@ function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<LoginPage />} />
-        <Route path="/signup" element={<AuthGuard> <SignupPage /> </AuthGuard>} />
+	<Route path="/signup" element={<SignupPage />} />		
         <Route path="/landing" element={<AuthGuard> <LandingPage /> </AuthGuard>} />
         <Route path="/find-grant" element={<AuthGuard> <FindGrantPage /> </AuthGuard>} />
         <Route path="/team-builder" element={<AuthGuard> <TeamBuilderLandingPage /> </AuthGuard>} />
