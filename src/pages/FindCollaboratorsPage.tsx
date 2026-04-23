@@ -4,6 +4,7 @@ import { ArrowLeft, UserPlus, Plus, ChevronDown, ChevronUp, ExternalLink } from 
 import { streamFindCollaborators } from '../lib/api';
 import { FacultyInputRow } from '../components/FacultyInputRow';
 import { ThinkingIndicator } from '../components/ThinkingIndicator';
+import { MissingFacultyModal } from '../components/MissingFacultyModal';
 import type { FacultyInput, FacultySuggestion, StreamEvent, GroupJustification } from '../types';
 
 function makeFaculty(email = '', osuUrl = ''): FacultyInput {
@@ -280,9 +281,11 @@ export const FindCollaboratorsPage: React.FC = () => {
     const [oppId, setOppId]                   = useState<string>('');
     const [oppTitle, setOppTitle]             = useState<string | null>(null);
     const [groupJustification, setGroupJustification] = useState<GroupJustification | null>(null);
+    const [missingEmails, setMissingEmails]   = useState<string[]>([]);
     const [infoMessage, setInfoMessage]       = useState<string | null>(null);
     const [error, setError]                   = useState<string | null>(null);
     const [submitted, setSubmitted]           = useState(false);
+    const [elapsedSeconds, setElapsedSeconds] = useState<number | null>(null);
 
     const updateFaculty = (i: number, upd: FacultyInput) =>
         setFaculty(prev => prev.map((f, idx) => idx === i ? upd : f));
@@ -297,7 +300,6 @@ export const FindCollaboratorsPage: React.FC = () => {
             return 'Add at least one existing team member.';
         for (let i = 0; i < faculty.length; i++) {
             if (!faculty[i].email.trim())  return `Email is required for member ${i + 1}.`;
-            if (!faculty[i].osuUrl.trim()) return `OSU Profile URL is required for member ${i + 1}.`;
         }
         if (additionalCount < 1 || additionalCount > 20)
             return 'Number of collaborators must be between 1 and 20.';
@@ -314,7 +316,9 @@ export const FindCollaboratorsPage: React.FC = () => {
         setOppId('');
         setOppTitle(null);
         setGroupJustification(null);
+        setMissingEmails([]);
         setThinkingLogs([]);
+        setElapsedSeconds(null);
         setIsLoading(true);
         setSubmitted(true);
         if (abortRef.current) abortRef.current();
@@ -332,11 +336,16 @@ export const FindCollaboratorsPage: React.FC = () => {
                     setThinkingLogs(prev => [...prev, event.payload.message]);
                 } else if (event.type === 'request_info') {
                     setIsLoading(false);
+                    if (event.payload.type === 'email_not_in_db' || event.payload.type === 'emails_not_in_db') {
+                        setMissingEmails(event.payload.emails_missing_in_db || []);
+                        return;
+                    }
                     setInfoMessage(event.payload.message);
                 } else if (event.type === 'message') {
                     setIsLoading(false);
                     if (event.payload.type === 'error') {
                         setError(event.payload.message);
+
                     } else if (event.payload.collaboratorsResult) {
                         const res = event.payload.collaboratorsResult;
                         setSuggestions(res.suggested_collaborators);
@@ -349,6 +358,9 @@ export const FindCollaboratorsPage: React.FC = () => {
                         ];
                         setAllMembers(combined);
                         if (res.group_justification) setGroupJustification(res.group_justification);
+                        if (event.payload.elapsed_seconds != null) {
+                            setElapsedSeconds(event.payload.elapsed_seconds);
+                        }
                         if (!res.suggested_collaborators.length) {
                             setInfoMessage('No collaborators found in the faculty database matching this grant.');
                         }
@@ -363,6 +375,12 @@ export const FindCollaboratorsPage: React.FC = () => {
 
     return (
         <div className="min-h-screen bg-slate-50">
+            <MissingFacultyModal 
+                isOpen={missingEmails.length > 0} 
+                missingEmails={missingEmails} 
+                onClose={() => setMissingEmails([])} 
+            />
+
             <header className="bg-white border-b border-slate-200 px-6 py-4 flex items-center gap-4">
                 <button
                     onClick={() => navigate('/team-builder')}
@@ -512,9 +530,16 @@ export const FindCollaboratorsPage: React.FC = () => {
 
                         {suggestions.length > 0 && (
                             <div className="space-y-5">
-                                <h3 className="text-sm font-semibold text-slate-700">
-                                    {suggestions.length} Suggested Collaborator{suggestions.length > 1 ? 's' : ''}
-                                </h3>
+                                <div className="flex items-baseline justify-between gap-3">
+                                    <h3 className="text-sm font-semibold text-slate-700">
+                                        {suggestions.length} Suggested Collaborator{suggestions.length > 1 ? 's' : ''}
+                                    </h3>
+                                    {elapsedSeconds != null && (
+                                        <span className="text-xs text-slate-400">
+                                            Response generated in {elapsedSeconds.toFixed(2)}s
+                                        </span>
+                                    )}
+                                </div>
                                 {suggestions.map((s, i) => (
                                     <CollaboratorCard key={s.faculty_id} faculty={s} rank={i + 1} />
                                 ))}

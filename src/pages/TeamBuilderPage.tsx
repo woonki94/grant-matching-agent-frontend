@@ -4,6 +4,7 @@ import { ArrowLeft, Users, Plus } from 'lucide-react';
 import { streamChat } from '../lib/api';
 import { FacultyInputRow } from '../components/FacultyInputRow';
 import { ThinkingIndicator } from '../components/ThinkingIndicator';
+import { MissingFacultyModal } from '../components/MissingFacultyModal';
 import type { FacultyInput, Grant, GroupMatchResult, StreamEvent } from '../types';
 
 function makeFaculty(): FacultyInput {
@@ -28,6 +29,7 @@ export const TeamBuilderPage: React.FC = () => {
     const [groupResults, setGroupResults] = useState<GroupMatchResult[]>([]);
     const [singleResults, setSingleResults] = useState<Grant[]>([]);
     const [infoMessage, setInfoMessage] = useState<string | null>(null);
+    const [missingEmails, setMissingEmails] = useState<string[]>([]);
     const [error, setError] = useState<string | null>(null);
     const [submitted, setSubmitted] = useState(false);
     const [expandedCards, setExpandedCards] = useState<Set<number>>(new Set());
@@ -46,7 +48,6 @@ export const TeamBuilderPage: React.FC = () => {
         if (faculty.length < 1) return 'Add at least one faculty member.';
         for (let i = 0; i < faculty.length; i++) {
             if (!faculty[i].email.trim()) return `Email is required for Faculty ${i + 1}.`;
-            if (!faculty[i].osuUrl.trim()) return `OSU Profile URL is required for Faculty ${i + 1}.`;
         }
         return null;
     };
@@ -60,6 +61,7 @@ export const TeamBuilderPage: React.FC = () => {
         setGroupResults([]);
         setSingleResults([]);
         setThinkingLogs([]);
+        setMissingEmails([]);
         setIsLoading(true);
         setSubmitted(true);
         setExpandedCards(new Set());
@@ -84,11 +86,16 @@ export const TeamBuilderPage: React.FC = () => {
                     setThinkingLogs(prev => [...prev, event.payload.message]);
                 } else if (event.type === 'request_info') {
                     setIsLoading(false);
+                    if (event.payload.type === 'email_not_in_db' || event.payload.type === 'emails_not_in_db') {
+                        setMissingEmails(event.payload.emails_missing_in_db || []);
+                        return;
+                    }
                     setInfoMessage(event.payload.message);
                 } else if (event.type === 'message') {
                     setIsLoading(false);
                     if (event.payload.type === 'error') {
                         setError(event.payload.detail || event.payload.message);
+
                     } else if (event.payload.groupResults?.length) {
                         // Ideal path: backend returned group matching results
                         setGroupResults(event.payload.groupResults);
@@ -115,6 +122,12 @@ export const TeamBuilderPage: React.FC = () => {
 
     return (
         <div className="min-h-screen bg-slate-50">
+            <MissingFacultyModal 
+                isOpen={missingEmails.length > 0} 
+                missingEmails={missingEmails} 
+                onClose={() => setMissingEmails([])} 
+            />
+
             {/* Top Bar */}
             <header className="bg-white border-b border-slate-200 px-6 py-4 flex items-center gap-4">
                 <button

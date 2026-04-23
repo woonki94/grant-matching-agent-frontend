@@ -1,5 +1,10 @@
 import type { Grant, GroupMatchResult } from '../types';
 
+/** Strip **bold** markdown markers for plain-text contexts like email. */
+function stripBold(text: string): string {
+    return text.replace(/\*\*([^*]+)\*\*/g, '$1');
+}
+
 /** Build a readable text summary from a single Grant result (what's shown on screen). */
 export function formatGrantContent(result: Grant): string {
     const lines: string[] = [];
@@ -11,20 +16,30 @@ export function formatGrantContent(result: Grant): string {
         : `${(result.score * 100).toFixed(0)}% match`;
     lines.push(`Score: ${score}`);
 
+    if (result.grant_explanation) {
+        lines.push('');
+        lines.push(`Grant Explanation: ${result.grant_explanation}`);
+    }
+
+    if (result.justification) {
+        lines.push('');
+        lines.push(`Justification: ${result.justification}`);
+    }
+
     if (result.why_match) {
         lines.push('');
-        lines.push(result.why_match.summary);
+        lines.push(stripBold(result.why_match.summary));
 
         if (result.why_match.alignment_points?.length) {
             lines.push('');
-            lines.push('Alignment Points:');
-            result.why_match.alignment_points.forEach(p => lines.push(`  • ${p}`));
+            lines.push('Why it fits:');
+            result.why_match.alignment_points.forEach(p => lines.push(`  • ${stripBold(p)}`));
         }
 
         if (result.why_match.risk_gaps?.length) {
             lines.push('');
-            lines.push('Risk Gaps:');
-            result.why_match.risk_gaps.forEach(r => lines.push(`  • ${r}`));
+            lines.push('Gaps to address:');
+            result.why_match.risk_gaps.forEach(r => lines.push(`  • ${stripBold(r)}`));
         }
     }
 

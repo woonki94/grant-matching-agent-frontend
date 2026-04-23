@@ -1,21 +1,31 @@
 import React, { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Search, Paperclip, FileText, X, Users } from 'lucide-react';
+import { ArrowLeft, Search, Users } from 'lucide-react';
 import { streamChat } from '../lib/api';
 import { ThinkingIndicator } from '../components/ThinkingIndicator';
 import { SendEmailButton } from '../components/SendEmailButton';
+import { MissingFacultyModal } from '../components/MissingFacultyModal';
+import { GrantHelperPanel } from '../components/GrantHelperPanel';
 import { formatGrantContent } from '../lib/formatEmail';
 import type { Grant, StreamEvent } from '../types';
+
+function renderHighlighted(text: string): React.ReactNode {
+    if (!text) return null;
+    const parts = text.split(/(\*\*[^*]+\*\*)/g);
+    return parts.map((part, i) =>
+        part.startsWith('**') && part.endsWith('**')
+            ? <strong key={i} className="font-semibold text-slate-900">{part.slice(2, -2)}</strong>
+            : part
+    );
+}
 
 export const FindGrantPage: React.FC = () => {
     const navigate = useNavigate();
     const threadId = useRef(`thread-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`);
     const abortRef = useRef<(() => void) | null>(null);
-    const fileInputRef = useRef<HTMLInputElement>(null);
-
     const [email, setEmail] = useState('');
-    const [osuUrl, setOsuUrl] = useState('');
-    const [cvFile, setCvFile] = useState<File | null>(null);
+    const [grantLink, setGrantLink] = useState('');
+    const [grantTitle, setGrantTitle] = useState('');
     const [message, setMessage] = useState('');
 
     const [isLoading, setIsLoading] = useState(false);
@@ -23,11 +33,12 @@ export const FindGrantPage: React.FC = () => {
     const [results, setResults] = useState<Grant[]>([]);
     const [infoMessage, setInfoMessage] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
+    const [missingEmails, setMissingEmails] = useState<string[]>([]);
     const [submitted, setSubmitted] = useState(false);
+    const [elapsedSeconds, setElapsedSeconds] = useState<number | null>(null);
 
     const validate = (): string | null => {
         if (!email.trim()) return 'Email is required.';
-        if (!osuUrl.trim()) return 'OSU Profile URL is required.';
         return null;
     };
 
@@ -38,7 +49,9 @@ export const FindGrantPage: React.FC = () => {
         setError(null);
         setInfoMessage(null);
         setResults([]);
+        setMissingEmails([]);
         setThinkingLogs([]);
+        setElapsedSeconds(null);
         setIsLoading(true);
         setSubmitted(true);
 
@@ -48,23 +61,32 @@ export const FindGrantPage: React.FC = () => {
             {
                 mode: 'single',
                 email: email.trim().toLowerCase(),
-                osuUrl: osuUrl.trim(),
-                cvFile: cvFile || undefined,
+                osuUrl: '',
                 message: message.trim() || 'Find the best matching grants for my research profile.',
                 threadId: threadId.current,
+                grantLink: grantLink.trim() || undefined,
+                grantTitle: grantTitle.trim() || undefined,
             },
             (event: StreamEvent) => {
                 if (event.type === 'step_update') {
                     setThinkingLogs(prev => [...prev, event.payload.message]);
                 } else if (event.type === 'request_info') {
                     setIsLoading(false);
+                    if (event.payload.type === 'email_not_in_db' || event.payload.type === 'emails_not_in_db') {
+                        setMissingEmails(event.payload.emails_missing_in_db || []);
+                        return;
+                    }
                     setInfoMessage(event.payload.message);
                 } else if (event.type === 'message') {
                     setIsLoading(false);
                     if (event.payload.type === 'error') {
                         setError(event.payload.detail || event.payload.message);
+
                     } else if (event.payload.results?.length) {
                         setResults(event.payload.results);
+                        if (event.payload.elapsed_seconds != null) {
+                            setElapsedSeconds(event.payload.elapsed_seconds);
+                        }
                     } else {
                         setInfoMessage(event.payload.message);
                     }
@@ -75,18 +97,18 @@ export const FindGrantPage: React.FC = () => {
         abortRef.current = abort;
     };
 
-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (file?.type === 'application/pdf') setCvFile(file);
-        if (fileInputRef.current) fileInputRef.current.value = '';
-    };
-
     const handleTeamBuilder = (grantTitle: string) => {
         navigate('/team-builder/form-team', { state: { grantTitle } });
     };
 
     return (
         <div className="min-h-screen bg-slate-50">
+            <MissingFacultyModal 
+                isOpen={missingEmails.length > 0} 
+                missingEmails={missingEmails} 
+                onClose={() => setMissingEmails([])} 
+            />
+
             {/* Top Bar */}
             <header className="bg-white border-b border-slate-200 px-6 py-4 flex items-center gap-4">
                 <button
@@ -109,65 +131,66 @@ export const FindGrantPage: React.FC = () => {
                     <h2 className="text-sm font-semibold text-slate-700 uppercase tracking-wide">Your Details</h2>
 
                     {/* Email */}
-                    <div>
-                        <label className="block text-xs font-semibold text-slate-600 mb-1">
-                            Email <span className="text-red-500">*</span>
-                        </label>
-                        <input
-                            type="email"
-                            value={email}
-                            onChange={e => setEmail(e.target.value)}
-                            placeholder="afern@oregonstate.edu"
-                            className="w-full px-3 py-2.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent placeholder:text-slate-400"
-                        />
+                    <div className="space-y-4">
+                        <div>
+                            <label className="block text-xs font-semibold text-slate-600 mb-1">
+                                Faculty Email <span className="text-red-500">*</span>
+                            </label>
+                            <input
+                                type="email"
+                                value={email}
+                                onChange={e => setEmail(e.target.value)}
+                                placeholder="alan.fern@oregonstate.edu"
+                                className="w-full px-3 py-2.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent placeholder:text-slate-400"
+                            />
+                        </div>
                     </div>
+                </div>
 
-                    {/* OSU URL */}
+                {/* Specific Grant Card */}
+                <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-4">
+                    <h2 className="text-sm font-semibold text-slate-700 uppercase tracking-wide">
+                        Specific Grant <span className="text-slate-400 font-normal normal-case">(optional)</span>
+                    </h2>
+
                     <div>
                         <label className="block text-xs font-semibold text-slate-600 mb-1">
-                            OSU Profile URL <span className="text-red-500">*</span>
+                            Grant URL <span className="text-slate-400 font-normal">(simpler.grants.gov)</span>
                         </label>
                         <input
                             type="url"
-                            value={osuUrl}
-                            onChange={e => setOsuUrl(e.target.value)}
-                            placeholder="https://engineering.oregonstate.edu/people/afern"
+                            value={grantLink}
+                            onChange={e => setGrantLink(e.target.value)}
+                            placeholder="https://simpler.grants.gov/opportunity/12345"
                             className="w-full px-3 py-2.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent placeholder:text-slate-400"
                         />
                     </div>
 
-                    {/* CV Upload */}
-                    <div>
-                        <label className="block text-xs font-semibold text-slate-600 mb-1">
-                            CV / Resume <span className="text-slate-400 font-normal">(optional · PDF only)</span>
-                        </label>
-                        <input
-                            type="file"
-                            ref={fileInputRef}
-                            onChange={handleFileChange}
-                            accept="application/pdf"
-                            className="hidden"
-                        />
-                        {cvFile ? (
-                            <div className="flex items-center gap-2 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg">
-                                <div className="bg-red-500 rounded p-1 text-white flex-shrink-0">
-                                    <FileText className="w-3 h-3" />
-                                </div>
-                                <span className="text-xs text-slate-700 truncate flex-1">{cvFile.name}</span>
-                                <button onClick={() => setCvFile(null)} className="text-slate-400 hover:text-red-500 transition-colors">
-                                    <X className="w-3.5 h-3.5" />
-                                </button>
-                            </div>
-                        ) : (
-                            <button
-                                onClick={() => fileInputRef.current?.click()}
-                                className="flex items-center gap-2 px-3 py-2 text-sm text-slate-500 border border-dashed border-slate-300 rounded-lg hover:border-green-400 hover:text-green-600 transition-colors w-full"
-                            >
-                                <Paperclip className="w-4 h-4" />
-                                Attach PDF
-                            </button>
-                        )}
+                    <div className="flex items-center gap-3">
+                        <div className="flex-1 h-px bg-slate-200" />
+                        <span className="text-xs text-slate-400 font-semibold">OR</span>
+                        <div className="flex-1 h-px bg-slate-200" />
                     </div>
+
+                    <div>
+                        <label className="block text-xs font-semibold text-slate-600 mb-1">Grant Title</label>
+                        <input
+                            type="text"
+                            value={grantTitle}
+                            onChange={e => setGrantTitle(e.target.value)}
+                            placeholder="NSF Program on Quantum Computing 2026"
+                            className="w-full px-3 py-2.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent placeholder:text-slate-400"
+                        />
+                        <GrantHelperPanel hideKeyword defaultOpen={false} />
+                    </div>
+                </div>
+
+                {/* Additional Context & Submit Card */}
+                <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-4">
+
+
+
+
 
                     {/* Optional message */}
                     <div>
@@ -224,9 +247,16 @@ export const FindGrantPage: React.FC = () => {
                         {/* Grant Results */}
                         {results.length > 0 && (
                             <div className="space-y-3">
-                                <h3 className="text-sm font-semibold text-slate-600">
-                                    {results.length} Grant{results.length > 1 ? 's' : ''} Found
-                                </h3>
+                                <div className="flex items-baseline justify-between gap-3">
+                                    <h3 className="text-sm font-semibold text-slate-600">
+                                        {results.length} Grant{results.length > 1 ? 's' : ''} Found
+                                    </h3>
+                                    {elapsedSeconds != null && (
+                                        <span className="text-xs text-slate-400">
+                                            Response generated in {elapsedSeconds.toFixed(2)}s
+                                        </span>
+                                    )}
+                                </div>
                                 {results.map((result, idx) => (
                                     <div
                                         key={idx}
@@ -256,31 +286,29 @@ export const FindGrantPage: React.FC = () => {
                                             </span>
                                         </div>
 
-                                        {result.grant_explanation && (
-                                            <p className="text-xs text-slate-600 leading-relaxed">{result.grant_explanation}</p>
-                                        )}
-
-                                        {result.justification && (
-                                            <div className="space-y-1.5">
-                                                <p className="text-xs font-semibold text-teal-700">Why this matches your profile</p>
-                                                <p className="text-xs text-slate-600 leading-relaxed whitespace-pre-line">
-                                                    {result.justification}
-                                                </p>
-                                            </div>
+                                        {result.grant_brief && (
+                                            <p className="text-xs text-slate-500 italic leading-relaxed border-l-2 border-blue-200 pl-2">
+                                                {result.grant_brief}
+                                            </p>
                                         )}
 
                                         {result.why_match && (
-                                            <div className="space-y-3">
-                                                <p className="text-xs text-slate-700 leading-relaxed font-medium">
-                                                    {result.why_match.summary}
-                                                </p>
+                                            <div className="space-y-2">
+                                                {result.why_match.summary && (
+                                                    <p className="text-xs text-slate-700 leading-relaxed">
+                                                        {renderHighlighted(result.why_match.summary)}
+                                                    </p>
+                                                )}
 
                                                 {result.why_match.alignment_points && result.why_match.alignment_points.length > 0 && (
                                                     <div>
-                                                        <p className="text-xs font-semibold text-green-700 mb-1">✅ Alignment Points:</p>
-                                                        <ul className="text-xs text-slate-600 space-y-1 list-disc list-inside">
+                                                        <p className="text-xs font-semibold text-green-700 mb-1">✅ Why it fits:</p>
+                                                        <ul className="text-xs text-slate-600 space-y-1 list-none">
                                                             {result.why_match.alignment_points.map((point, i) => (
-                                                                <li key={i} className="leading-relaxed">{point}</li>
+                                                                <li key={i} className="flex items-start gap-2">
+                                                                    <span className="text-[2rem] leading-none text-green-500 flex-shrink-0 mt-[-0.25rem] select-none">•</span>
+                                                                    <span className="leading-relaxed">{renderHighlighted(point)}</span>
+                                                                </li>
                                                             ))}
                                                         </ul>
                                                     </div>
@@ -288,10 +316,13 @@ export const FindGrantPage: React.FC = () => {
 
                                                 {result.why_match.risk_gaps && result.why_match.risk_gaps.length > 0 && (
                                                     <div>
-                                                        <p className="text-xs font-semibold text-yellow-700 mb-1">⚠️ Risk Gaps:</p>
-                                                        <ul className="text-xs text-slate-600 space-y-1 list-disc list-inside">
+                                                        <p className="text-xs font-semibold text-amber-700 mb-1">⚠️ Gaps to address:</p>
+                                                        <ul className="text-xs text-slate-600 space-y-1 list-none">
                                                             {result.why_match.risk_gaps.map((risk, i) => (
-                                                                <li key={i} className="leading-relaxed">{risk}</li>
+                                                                <li key={i} className="flex items-start gap-2">
+                                                                    <span className="text-[2rem] leading-none text-amber-500 flex-shrink-0 mt-[-0.25rem] select-none">•</span>
+                                                                    <span className="leading-relaxed">{renderHighlighted(risk)}</span>
+                                                                </li>
                                                             ))}
                                                         </ul>
                                                     </div>
