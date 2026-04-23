@@ -609,13 +609,7 @@ export const FacultyProfilePage: React.FC = () => {
                 {/* ══════════════════════════════════════════════════════════════ */}
                 {activeTab === 'new' && (
                     <div className="space-y-6">
-                        {/* Under construction warning */}
-                        <div className="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-xl px-5 py-4">
-                            <span className="text-amber-500 text-lg flex-shrink-0">⚠</span>
-                            <p className="text-sm font-medium text-amber-800">
-                                This feature is under development. Faculty registration is not yet connected to the backend.
-                            </p>
-                        </div>
+
 
                         {/* Banner */}
                         {newFacultyBanner && (
@@ -832,8 +826,7 @@ export const FacultyProfilePage: React.FC = () => {
                             </div>
 
                             {/* ── Publications ── */}
-                            {sortedYears.length > 0 && (
-                                <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-6 space-y-4">
+                            <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-6 space-y-4">
                                     <SectionHeader
                                         icon={<BookOpen className="w-4 h-4 text-slate-500" />}
                                         label="Publications"
@@ -861,6 +854,9 @@ export const FacultyProfilePage: React.FC = () => {
                                     )}
 
                                     <div className="space-y-4 max-h-[420px] overflow-y-auto pr-1">
+                                        {sortedYears.length === 0 && !editingPubs && (
+                                            <p className="text-sm text-slate-500 italic py-2">No publications found.</p>
+                                        )}
                                         {sortedYears.map(year => (
                                             <div key={year}>
                                                 <p className="text-lg font-extrabold text-teal-700 mb-1.5">{year}</p>
@@ -884,7 +880,6 @@ export const FacultyProfilePage: React.FC = () => {
                                         ))}
                                     </div>
                                 </div>
-                            )}
 
                             {/* ── Attached Files / Sources ── */}
                             <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-6 space-y-3">
