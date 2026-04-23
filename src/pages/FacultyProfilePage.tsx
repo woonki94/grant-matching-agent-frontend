@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
     ArrowLeft, User, Search, ExternalLink, BookOpen, Tag, Globe,
@@ -10,6 +10,8 @@ import type {
     FacultyProfile, FacultyKeywords, FacultyInput,
     KeywordUpdateMode,
 } from '../types';
+
+import { useLocation } from 'react-router-dom';
 
 function makeFaculty(): FacultyInput {
     return { id: `${Date.now()}-${Math.random()}`, email: '', osuUrl: '', cvFile: undefined };
@@ -226,11 +228,25 @@ const KeywordSectionEditable: React.FC<{
 export const FacultyProfilePage: React.FC = () => {
     const navigate = useNavigate();
 
+    const location = useLocation();
+
+    const storedRole = localStorage.getItem("role") || "normal_user";
+    const storedUserEmail = (localStorage.getItem("userEmail") || "").toLowerCase().trim();
+    const isAdmin = storedRole === "admin";
+
     // ── tab state
     const [activeTab, setActiveTab] = useState<'lookup' | 'new'>('lookup');
 
+    useEffect(() => {
+        const params = new URLSearchParams(location.search);
+        if (params.get("mode") === "new") {
+            setActiveTab("new");
+        }
+    }, [location]);
+
+
     // ── lookup state
-    const [email, setEmail] = useState('');
+    const [email, setEmail] = useState(isAdmin ? '' : storedUserEmail);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [faculty, setFaculty] = useState<FacultyProfile | null>(null);
@@ -271,18 +287,30 @@ export const FacultyProfilePage: React.FC = () => {
 
     // ── lookup ────────────────────────────────────────────────────────────────
 
-    const handleLookup = async () => {
-        const trimmed = email.trim().toLowerCase();
-        if (!trimmed) { setError('Please enter an email address.'); return; }
-        setError(null); setFaculty(null); setBanner(null);
+    const handleLookup = async (lookupEmail?: string) => {
+        const targetEmail = (lookupEmail || email).trim().toLowerCase();
+        if (!targetEmail) return;
+
         setIsLoading(true);
+        setError(null);
+
         try {
-            const result = await fetchFacultyByEmail(trimmed);
+            const result = await fetchFacultyByEmail(targetEmail);
             setFaculty(result);
         } catch (err: any) {
-            setError(err.message || 'Something went wrong.');
-        } finally { setIsLoading(false); }
+            setError(err?.message || "Failed to fetch faculty profile.");
+            setFaculty(null);
+        } finally {
+            setIsLoading(false);
+        }
     };
+
+    useEffect(() => {
+        if (!isAdmin && storedUserEmail) {
+            setEmail(storedUserEmail);
+            handleLookup(storedUserEmail);
+        }
+    }, [isAdmin, storedUserEmail]);
 
     // ── Helper: apply PATCH response to state ─────────────────────────────────
 
@@ -535,7 +563,7 @@ export const FacultyProfilePage: React.FC = () => {
         <div className="min-h-screen bg-slate-50">
             {/* Top Bar */}
             <header className="bg-white border-b border-slate-200 px-6 py-4 flex items-center gap-4">
-                <button onClick={() => navigate('/')} className="flex items-center gap-2 text-slate-500 hover:text-slate-800 transition-colors text-sm">
+                <button onClick={() => navigate('/landing')} className="flex items-center gap-2 text-slate-500 hover:text-slate-800 transition-colors text-sm">
                     <ArrowLeft className="w-4 h-4" />Back
                 </button>
                 <div className="h-5 w-px bg-slate-200" />
@@ -550,23 +578,30 @@ export const FacultyProfilePage: React.FC = () => {
                 <div className="flex gap-1 bg-slate-100 rounded-xl p-1">
                     <button
                         onClick={() => setActiveTab('lookup')}
-                        className={`flex-1 flex items-center justify-center gap-2 py-2.5 text-sm font-semibold rounded-lg transition-all duration-200 ${activeTab === 'lookup'
+                        className={`flex-1 flex items-center justify-center gap-2 py-2.5 text-sm font-semibold rounded-lg transition-all duration-200 ${
+                        activeTab === 'lookup'
                             ? 'bg-white text-teal-700 shadow-sm'
                             : 'text-slate-500 hover:text-slate-700'
-                            }`}
+                        }`}
                     >
-                        <Search className="w-4 h-4" />Look Up
+                        <Search className="w-4 h-4" />
+                        {isAdmin ? 'Look Up' : 'My Profile'}
                     </button>
-                    <button
+
+                    {isAdmin && (
+                        <button
                         onClick={() => setActiveTab('new')}
-                        className={`flex-1 flex items-center justify-center gap-2 py-2.5 text-sm font-semibold rounded-lg transition-all duration-200 ${activeTab === 'new'
+                        className={`flex-1 flex items-center justify-center gap-2 py-2.5 text-sm font-semibold rounded-lg transition-all duration-200 ${
+                            activeTab === 'new'
                             ? 'bg-white text-teal-700 shadow-sm'
                             : 'text-slate-500 hover:text-slate-700'
-                            }`}
-                    >
-                        <UserPlus className="w-4 h-4" />New Faculty
-                    </button>
-                </div>
+                        }`}
+                        >
+                        <UserPlus className="w-4 h-4" />
+                        New Faculty
+                        </button>
+                    )}
+                    </div>
 
                 {/* ══════════════════════════════════════════════════════════════ */}
                 {/* ── NEW FACULTY TAB ── */}
@@ -687,18 +722,31 @@ export const FacultyProfilePage: React.FC = () => {
                                 Faculty Email <span className="text-red-500">*</span>
                             </label>
                             <input
-                                type="email" value={email}
-                                onChange={e => setEmail(e.target.value)}
-                                onKeyDown={e => e.key === 'Enter' && handleLookup()}
-                                placeholder="alan.fern@oregonstate.edu"
-                                className="w-full px-3 py-2.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent placeholder:text-slate-400"
+                                type="email"
+                                value={email}
+                                onChange={e => {
+                                    if (isAdmin) setEmail(e.target.value);
+                                }}
+                                onKeyDown={e => {
+                                    if (e.key === 'Enter' && isAdmin) handleLookup();
+                                }}
+                                disabled={!isAdmin}
+                                placeholder={isAdmin ? "alan.fern@oregonstate.edu" : storedUserEmail}
+                                className={`w-full px-3 py-2.5 text-sm rounded-lg ${
+                                    isAdmin
+                                        ? "border border-slate-300 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent placeholder:text-slate-400"
+                                        : "border border-slate-200 bg-slate-100 text-slate-500 cursor-not-allowed"
+                                }`}
                             />
                         </div>
                         {error && !faculty && (
                             <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{error}</p>
                         )}
-                        <button onClick={handleLookup} disabled={isLoading}
-                            className="w-full flex items-center justify-center gap-2 py-3 bg-teal-600 hover:bg-teal-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-semibold rounded-xl transition-colors">
+                        <button 
+                            onClick={() => handleLookup()} 
+                            disabled={isLoading}
+                            className="w-full flex items-center justify-center gap-2 py-3 bg-teal-600 hover:bg-teal-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-semibold rounded-xl transition-colors"
+                        >
                             <Search className="w-4 h-4" />{isLoading ? 'Looking up…' : 'Look Up'}
                         </button>
                     </div>
