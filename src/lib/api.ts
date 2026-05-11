@@ -380,21 +380,3 @@ export async function createFaculty(
     return response.json();
 }
 
-/** Create faculty profiles from raw JSON. */
-export async function createFacultyFromJson(
-    json: unknown,
-): Promise<{ ok: boolean; message: string; created?: number }> {
-    const response = await fetch('/api/faculty/create', {
-        method: 'POST',
-        headers: getAuthHeaders({ 
-            'Content-Type': 'application/json' 
-        }),
-        body: JSON.stringify(json),
-    });
-    if (!response.ok) {
-        const text = await response.text();
-        throw new Error(text || `Server error ${response.status}`);
-    }
-    return response.json();
-}
-

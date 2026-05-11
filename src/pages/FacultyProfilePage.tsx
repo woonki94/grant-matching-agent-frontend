@@ -4,7 +4,7 @@ import {
     ArrowLeft, User, Search, ExternalLink, BookOpen, Tag, Globe,
     Pencil, X, Plus, Trash2, Save, Lock, Check, UserPlus, Code2,
 } from 'lucide-react';
-import { fetchFacultyByEmail, patchFacultySource, patchFacultyKeywords, createFaculty, createFacultyFromJson } from '../lib/api';
+import { fetchFacultyByEmail, patchFacultySource, patchFacultyKeywords, createFaculty } from '../lib/api';
 import { FacultyInputRow } from '../components/FacultyInputRow';
 import { MissingFacultyModal } from '../components/MissingFacultyModal';
 import type {
@@ -529,8 +529,19 @@ export const FacultyProfilePage: React.FC = () => {
         try {
             if (newFacultyInputMode === 'json') {
                 const parsed = JSON.parse(jsonInput);
-                const resp = await createFacultyFromJson(parsed);
-                setNewFacultyBanner({ msg: resp.message || 'Faculty created successfully.', mode: 'success' });
+                if (!Array.isArray(parsed)) throw new Error("JSON must be an array of faculty objects.");
+                
+                const valid = parsed.map((f: any) => ({
+                    email: f.email || '',
+                    osuUrl: f.osu_url || f.osuUrl || '',
+                    cvFile: undefined
+                })).filter(f => f.email.trim());
+
+                if (valid.length === 0) { setNewFacultyBanner({ msg: 'At least one email is required in the JSON.', mode: 'error' }); return; }
+                if (valid.some(f => !f.osuUrl.trim())) { setNewFacultyBanner({ msg: 'OSU Profile URL is required for all faculty.', mode: 'error' }); return; }
+                
+                const resp = await createFaculty(valid);
+                setNewFacultyBanner({ msg: resp.message || `${resp.created ?? valid.length} faculty created.`, mode: 'success' });
                 setJsonInput('');
             } else {
                 const valid = newFaculty.filter(f => f.email.trim());
