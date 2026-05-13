@@ -194,6 +194,7 @@ export interface FacultySourcePatch {
         publications?: {
             set_fetch_year_range?: { from: number; to: number };
             delete?: number; // single ID
+            add?: { title: string; doi?: string; year?: number }[];
         };
         attached_files?: {
             add?: { source_url: string }[];
