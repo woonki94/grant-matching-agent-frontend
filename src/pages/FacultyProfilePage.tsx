@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import {
     ArrowLeft, User, Search, ExternalLink, BookOpen, Tag, Globe,
     Pencil, X, Plus, Trash2, Save, Lock, Check, UserPlus, Code2,
+    CheckCircle2, XCircle, Info,
 } from 'lucide-react';
 import { fetchFacultyByEmail, patchFacultySource, patchFacultyKeywords, createFaculty } from '../lib/api';
 import { FacultyInputRow } from '../components/FacultyInputRow';
@@ -19,23 +20,56 @@ function makeFaculty(email = '', osuUrl = ''): FacultyInput {
 // ── Inline helper components ──────────────────────────────────────────────────
 
 /** Small save-status banner */
-const SaveBanner: React.FC<{
+const SaveModal: React.FC<{
     message: string | null;
     mode: 'success' | 'error' | 'info';
     onDismiss: () => void;
 }> = ({ message, mode, onDismiss }) => {
+    // Auto-dismiss successes after 3 s
+    useEffect(() => {
+        if (!message || mode !== 'success') return;
+        const t = setTimeout(onDismiss, 3000);
+        return () => clearTimeout(t);
+    }, [message, mode, onDismiss]);
+
     if (!message) return null;
-    const bg =
-        mode === 'success' ? 'bg-green-50 border-green-200 text-green-800'
-            : mode === 'error' ? 'bg-red-50 border-red-200 text-red-700'
-                : 'bg-amber-50 border-amber-200 text-amber-800';
+
+    const icon =
+        mode === 'success'
+            ? <CheckCircle2 className="w-10 h-10 text-green-500" strokeWidth={1.5} />
+            : mode === 'error'
+                ? <XCircle className="w-10 h-10 text-red-500" strokeWidth={1.5} />
+                : <Info className="w-10 h-10 text-amber-500" strokeWidth={1.5} />;
+    const accent =
+        mode === 'success' ? { ring: 'ring-green-200', title: 'text-green-700', btn: 'bg-green-600 hover:bg-green-700' }
+            : mode === 'error' ? { ring: 'ring-red-200', title: 'text-red-600', btn: 'bg-red-500 hover:bg-red-600' }
+                : { ring: 'ring-amber-200', title: 'text-amber-700', btn: 'bg-amber-500 hover:bg-amber-600' };
+
     return (
-        <div className={`flex items-center justify-between rounded-xl border px-4 py-3 text-sm ${bg}`}>
-            <span>{message}</span>
-            <button onClick={onDismiss} className="ml-3 hover:opacity-70"><X className="w-3.5 h-3.5" /></button>
+        <div className="fixed inset-0 z-50 flex items-center justify-center" onClick={onDismiss}>
+            {/* Backdrop */}
+            <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" />
+            {/* Card */}
+            <div
+                className={`relative z-10 w-full max-w-sm mx-4 bg-white rounded-2xl shadow-2xl ring-1 ${accent.ring} px-7 py-6 flex flex-col items-center gap-4 animate-[fadeInScale_0.18s_ease-out]`}
+                onClick={e => e.stopPropagation()}
+            >
+                {icon}
+                <p className={`text-sm font-semibold text-center leading-relaxed ${accent.title}`}>{message}</p>
+                {mode === 'success' && (
+                    <p className="text-xs text-slate-400">This dialog will close automatically…</p>
+                )}
+                <button
+                    onClick={onDismiss}
+                    className={`mt-1 px-5 py-2 text-xs font-semibold text-white rounded-lg transition-colors ${accent.btn}`}
+                >
+                    {mode === 'success' ? 'Got it' : 'Dismiss'}
+                </button>
+            </div>
         </div>
     );
 };
+
 
 /** Section header with edit toggle */
 const SectionHeader: React.FC<{
@@ -267,6 +301,11 @@ export const FacultyProfilePage: React.FC = () => {
     // ── draft state for publications
     const [draftYearFrom, setDraftYearFrom] = useState<number | ''>('');
     const [draftYearTo, setDraftYearTo] = useState<number | ''>('');
+    const [pendingDeletedPubIds, setPendingDeletedPubIds] = useState<Set<number>>(new Set());
+    const [pendingAddedPubs, setPendingAddedPubs] = useState<{ title: string; doi?: string; year?: number }[]>([]);
+    const [draftPubTitle, setDraftPubTitle] = useState('');
+    const [draftPubDoi, setDraftPubDoi] = useState('');
+    const [draftPubYear, setDraftPubYear] = useState<number | ''>('');
 
     // ── draft state for attached files
     const [draftNewFileUrl, setDraftNewFileUrl] = useState('');
@@ -381,34 +420,84 @@ export const FacultyProfilePage: React.FC = () => {
         if (!faculty) return;
         setDraftYearFrom('');
         setDraftYearTo('');
+        setPendingDeletedPubIds(new Set());
+        setPendingAddedPubs([]);
+        setDraftPubTitle('');
+        setDraftPubDoi('');
+        setDraftPubYear('');
         setEditingPubs(true);
     };
 
-    const cancelEditPubs = () => { setEditingPubs(false); };
+    const cancelEditPubs = () => {
+        setPendingDeletedPubIds(new Set());
+        setPendingAddedPubs([]);
+        setDraftPubTitle('');
+        setDraftPubDoi('');
+        setDraftPubYear('');
+        setEditingPubs(false);
+    };
 
-    const deletePub = async (pubId: number) => {
+    const togglePendingDelete = (pubId: number) => {
+        setPendingDeletedPubIds(prev => {
+            const next = new Set(prev);
+            if (next.has(pubId)) next.delete(pubId);
+            else next.add(pubId);
+            return next;
+        });
+    };
+
+    const addPendingPub = () => {
+        const title = draftPubTitle.trim();
+        if (!title) return;
+        setPendingAddedPubs(prev => [
+            ...prev,
+            { title, doi: draftPubDoi.trim() || undefined, year: draftPubYear !== '' ? Number(draftPubYear) : undefined },
+        ]);
+        setDraftPubTitle('');
+        setDraftPubDoi('');
+        setDraftPubYear('');
+    };
+
+    const removePendingAddedPub = (idx: number) => {
+        setPendingAddedPubs(prev => prev.filter((_, i) => i !== idx));
+    };
+
+    const savePubs = async () => {
         if (!faculty) return;
         setSaving(true); setSavingSource(true); setBanner(null);
         try {
-            const resp = await patchFacultySource({
-                email: faculty.email,
-                data_from: { publications: { delete: pubId } },
-            });
-            applyPatchResponse(resp, resp.keyword_update_mode);
-        } catch (err: any) {
-            setBanner({ msg: err.message, mode: 'error' });
-        } finally { setSaving(false); setSavingSource(false); }
-    };
-
-    const saveFetchYearRange = async () => {
-        if (!faculty || draftYearFrom === '' || draftYearTo === '') return;
-        setSaving(true); setSavingSource(true); setBanner(null);
-        try {
-            const resp = await patchFacultySource({
-                email: faculty.email,
-                data_from: { publications: { set_fetch_year_range: { from: Number(draftYearFrom), to: Number(draftYearTo) } } },
-            });
-            applyPatchResponse(resp, resp.keyword_update_mode);
+            let lastResp: any = null;
+            // Delete marked pubs sequentially
+            for (const pubId of pendingDeletedPubIds) {
+                lastResp = await patchFacultySource({
+                    email: faculty.email,
+                    data_from: { publications: { delete: pubId } },
+                });
+            }
+            // Add new pubs in one batch call
+            if (pendingAddedPubs.length > 0) {
+                lastResp = await patchFacultySource({
+                    email: faculty.email,
+                    data_from: { publications: { add: pendingAddedPubs } },
+                });
+            }
+            // Apply year-range change if both fields are filled
+            if (draftYearFrom !== '' && draftYearTo !== '') {
+                lastResp = await patchFacultySource({
+                    email: faculty.email,
+                    data_from: { publications: { set_fetch_year_range: { from: Number(draftYearFrom), to: Number(draftYearTo) } } },
+                });
+            }
+            if (lastResp) {
+                applyPatchResponse(lastResp, lastResp.keyword_update_mode);
+            } else {
+                setBanner({ msg: 'No changes to save.', mode: 'info' });
+            }
+            setPendingDeletedPubIds(new Set());
+            setPendingAddedPubs([]);
+            setDraftPubTitle('');
+            setDraftPubDoi('');
+            setDraftPubYear('');
             setEditingPubs(false);
         } catch (err: any) {
             setBanner({ msg: err.message, mode: 'error' });
@@ -595,6 +684,17 @@ export const FacultyProfilePage: React.FC = () => {
 
     return (
         <div className="min-h-screen bg-slate-50">
+            {/* ── Global notification modals ── */}
+            <SaveModal
+                message={banner?.msg ?? null}
+                mode={banner?.mode ?? 'info'}
+                onDismiss={() => setBanner(null)}
+            />
+            <SaveModal
+                message={newFacultyBanner?.msg ?? null}
+                mode={newFacultyBanner?.mode ?? 'info'}
+                onDismiss={() => setNewFacultyBanner(null)}
+            />
             <MissingFacultyModal
                 isOpen={missingEmails.length > 0}
                 missingEmails={missingEmails}
@@ -647,15 +747,6 @@ export const FacultyProfilePage: React.FC = () => {
                 {activeTab === 'new' && (
                     <div className="space-y-6">
 
-
-                        {/* Banner */}
-                        {newFacultyBanner && (
-                            <SaveBanner
-                                message={newFacultyBanner.msg}
-                                mode={newFacultyBanner.mode}
-                                onDismiss={() => setNewFacultyBanner(null)}
-                            />
-                        )}
 
                         {/* Mode toggle */}
                         <div className="flex items-center gap-3">
@@ -794,8 +885,7 @@ export const FacultyProfilePage: React.FC = () => {
                         <div className="bg-red-50 border border-red-200 rounded-xl px-5 py-4 text-sm text-red-700">{error}</div>
                     )}
 
-                    {/* ── Save banner ── */}
-                    {banner && <SaveBanner message={banner.msg} mode={banner.mode} onDismiss={() => setBanner(null)} />}
+
 
                     {/* Regenerating keywords alert */}
                     {savingSource && (
@@ -881,7 +971,7 @@ export const FacultyProfilePage: React.FC = () => {
                                     label="Publications"
                                     count={Object.values(pubsByYear).flat().length}
                                     editing={editingPubs} saving={saving}
-                                    onEdit={startEditPubs} onCancel={cancelEditPubs} onSave={saveFetchYearRange}
+                                    onEdit={startEditPubs} onCancel={cancelEditPubs} onSave={savePubs}
                                 />
 
                                 {editingPubs && (
@@ -910,24 +1000,107 @@ export const FacultyProfilePage: React.FC = () => {
                                         <div key={year}>
                                             <p className="text-lg font-extrabold text-teal-700 mb-1.5">{year}</p>
                                             <ul className="space-y-0 divide-y divide-slate-100">
-                                                {pubsByYear[year].map(pub => (
-                                                    <li key={pub.id} className="flex items-start gap-2 group py-2">
-                                                        <span className="w-1.5 h-1.5 rounded-full bg-slate-300 flex-shrink-0 mt-1.5" />
-                                                        <span className="flex-1 text-sm text-slate-700 leading-relaxed">
-                                                            {pub.title}
-                                                        </span>
-                                                        {editingPubs && (
-                                                            <button onClick={() => deletePub(pub.id)} disabled={saving}
-                                                                className="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-red-500 flex-shrink-0 mt-0.5 transition-opacity">
-                                                                <Trash2 className="w-3.5 h-3.5" />
-                                                            </button>
-                                                        )}
-                                                    </li>
-                                                ))}
+                                                {pubsByYear[year].map(pub => {
+                                                        const isPendingDelete = pendingDeletedPubIds.has(pub.id);
+                                                        return (
+                                                            <li key={pub.id} className={`flex items-start gap-2 group py-2 transition-opacity ${isPendingDelete ? 'opacity-40' : ''}`}>
+                                                                <span className="w-1.5 h-1.5 rounded-full bg-slate-300 flex-shrink-0 mt-1.5" />
+                                                                <span className={`flex-1 text-sm text-slate-700 leading-relaxed ${isPendingDelete ? 'line-through text-slate-400' : ''}`}>
+                                                                    {pub.title}
+                                                                </span>
+                                                                {editingPubs && (
+                                                                    <button
+                                                                        onClick={() => togglePendingDelete(pub.id)}
+                                                                        disabled={saving}
+                                                                        title={isPendingDelete ? 'Undo delete' : 'Mark for deletion'}
+                                                                        className={`opacity-0 group-hover:opacity-100 flex-shrink-0 mt-0.5 transition-all ${
+                                                                            isPendingDelete
+                                                                                ? 'opacity-100 text-red-400 hover:text-slate-400'
+                                                                                : 'text-slate-400 hover:text-red-500'
+                                                                        }`}
+                                                                    >
+                                                                        <Trash2 className="w-3.5 h-3.5" />
+                                                                    </button>
+                                                                )}
+                                                            </li>
+                                                        );
+                                                    })}
                                             </ul>
                                         </div>
                                     ))}
                                 </div>
+
+                                {/* ── Add publication form (only in edit mode) ── */}
+                                {editingPubs && (
+                                    <div className="border-t border-slate-100 pt-4 space-y-3">
+                                        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Add Publication</p>
+
+                                        {/* Queued additions preview */}
+                                        {pendingAddedPubs.length > 0 && (
+                                            <ul className="space-y-1">
+                                                {pendingAddedPubs.map((p, idx) => (
+                                                    <li key={idx} className="flex items-start gap-2 bg-teal-50 border border-teal-200 rounded-lg px-3 py-2 text-xs">
+                                                        <Plus className="w-3 h-3 text-teal-500 flex-shrink-0 mt-0.5" />
+                                                        <span className="flex-1 text-teal-800 leading-snug">
+                                                            {p.title}
+                                                            {p.doi && <span className="ml-1 text-teal-500">· {p.doi}</span>}
+                                                            {p.year && <span className="ml-1 text-teal-500">· {p.year}</span>}
+                                                        </span>
+                                                        <button onClick={() => removePendingAddedPub(idx)} className="text-teal-400 hover:text-red-500 flex-shrink-0">
+                                                            <X className="w-3 h-3" />
+                                                        </button>
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        )}
+
+                                        {/* Title */}
+                                        <div>
+                                            <label className="block text-[11px] font-semibold text-slate-500 mb-1">Title <span className="text-red-400">*</span></label>
+                                            <input
+                                                type="text"
+                                                value={draftPubTitle}
+                                                onChange={e => setDraftPubTitle(e.target.value)}
+                                                onKeyDown={e => e.key === 'Enter' && addPendingPub()}
+                                                placeholder="e.g. Deep Learning for Grant Matching"
+                                                className="w-full text-sm border border-slate-300 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-teal-500"
+                                            />
+                                        </div>
+
+                                        {/* DOI + Year side-by-side */}
+                                        <div className="flex gap-2">
+                                            <div className="flex-1">
+                                                <label className="block text-[11px] font-semibold text-slate-500 mb-1">DOI <span className="text-slate-400 font-normal">(optional)</span></label>
+                                                <input
+                                                    type="text"
+                                                    value={draftPubDoi}
+                                                    onChange={e => setDraftPubDoi(e.target.value)}
+                                                    placeholder="10.1234/example"
+                                                    className="w-full text-sm border border-slate-300 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-teal-500"
+                                                />
+                                            </div>
+                                            <div className="w-28">
+                                                <label className="block text-[11px] font-semibold text-slate-500 mb-1">Year <span className="text-slate-400 font-normal">(optional)</span></label>
+                                                <input
+                                                    type="number"
+                                                    value={draftPubYear}
+                                                    onChange={e => setDraftPubYear(e.target.value ? Number(e.target.value) : '')}
+                                                    placeholder={String(new Date().getFullYear())}
+                                                    className="w-full text-sm border border-slate-300 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-teal-500"
+                                                />
+                                            </div>
+                                        </div>
+
+                                        <button
+                                            onClick={addPendingPub}
+                                            disabled={!draftPubTitle.trim()}
+                                            className="flex items-center gap-1.5 text-xs font-semibold text-teal-600 hover:text-teal-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                                        >
+                                            <Plus className="w-3.5 h-3.5" />
+                                            Queue for addition
+                                        </button>
+                                    </div>
+                                )}
                             </div>
 
                             {/* ── Attached Files / Sources ── */}
